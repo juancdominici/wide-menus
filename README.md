@@ -4,7 +4,7 @@ A UI mod for [gen1recomp](https://github.com/bryanthaboi/gen1recomp). It stretch
 **OPTIONS → BATTLE LAYOUT → WIDE**, so labels, values, and list rows have room to breathe.
 
 Overworld dialogue, naming, the trainer card, Oak's intro, and the START menu stay Game Boy sized.
-**Version 0.1.0** · id `ui-mod` · category UI · no extra options
+**Version 0.1.0** · id `wide-menus` · category UI · no extra options
 
 ## What it changes
 
@@ -37,7 +37,7 @@ These keep the original 160×144 layout:
 
 ## Install
 
-1. Get a `ui-mod` zip or `.modpkg` from a [GitHub release](https://github.com/juancdominici/wide-menus/releases).
+1. Get a `wide-menus` zip or `.modpkg` from a [GitHub release](https://github.com/juancdominici/wide-menus/releases).
 2. In the launcher, open **MODS** and choose **Import mod .zip** (or drop the file onto the window). On Switch, copy it into the save-dir `imports/mods/` folder, then **Scan again**.
 3. Enable **Wide Menus**. The first time, grant **PATCHES ENGINE CODE** (`engine_internals`) — the mod has to wrap shared UI drawing to stretch those screens.
 4. Apply / restart when the manager asks.
@@ -46,17 +46,17 @@ You can also toggle it in-game with **F10** (Mod Manager). There is nothing to c
 
 ## Development
 
-This repo *is* the mod. The engine loads it from `gen1recomp/mods/ui-mod` (the folder name must match the manifest id). Junction or clone it there:
+This repo _is_ the mod. The engine loads it from `gen1recomp/mods/wide-menus` (the folder name must match the manifest id). Junction or clone it there:
 
 ```bat
-mklink /J C:\path\to\gen1recomp\mods\ui-mod C:\path\to\wide-menus
+mklink /J C:\path\to\gen1recomp\mods\wide-menus C:\path\to\wide-menus
 ```
 
 From the engine root:
 
 ```sh
-python3 tools/modkit.py pack mods/ui-mod
-luajit mods/ui-mod/tests/ui_mod_api_test.lua
+python3 tools/modkit.py pack mods/wide-menus
+luajit mods/wide-menus/tests/ui_mod_api_test.lua
 ```
 
 ## Requirements
@@ -71,7 +71,7 @@ It does not depend on other mods. It does not need **BATTLE LAYOUT** set to WIDE
 
 `mod.ui.ListMenu` / OPTIONS-style screens widen on their own. Custom opaque screens default to wide; naming, summary, dex entry, town map, and diploma stay classic.
 
-Authors of a native-looking custom menu should declare `"optional_dependencies": ["ui-mod"]` and either set a flag on the state or call the export API:
+Authors of a native-looking custom menu should declare `"optional_dependencies": ["wide-menus"]` and either set a flag on the state or call the export API:
 
 ```lua
 -- Load-order safe: set this before returning from screens:register new()
@@ -79,7 +79,7 @@ state.uiModLayout = "wide"      -- full-bleed 304×144
 -- "centered" = classic 160 layout, centered on 304
 -- "classic"  = stay 160×144 (opt out)
 
-local wide = mod.find("ui-mod")
+local wide = mod.find("wide-menus")
 if wide then
   wide.exports.register("MyScreen", "wide")  -- or "centered" / "classic"
   local cols = wide.exports.cols()           -- 38 when wide, 20 when classic

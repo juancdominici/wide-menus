@@ -1,13 +1,13 @@
 -- Sharing metadata for the manager detail pane.
 return {
   summary = "Widens OPTIONS/lists/party/mod screens to the 304-wide canvas.",
-  author = "ui-mod",
+  author = "wide-menus",
   tags = { "ui", "menus", "widescreen", "qol" },
   differences = {
     changed = {
       "OPTIONS / Mod Manager / bag / shop / dex / party use a 304x144 UI surface",
       "Opaque screens registered by other mods are widened automatically",
-      "Other mods opt in/out with uiModLayout or mod.find(\"ui-mod\").exports",
+      "Other mods opt in/out with uiModLayout or mod.find(\"wide-menus\").exports",
       "Option rows put label and value on one line when wide",
     },
     known = {

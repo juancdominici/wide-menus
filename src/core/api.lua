@@ -1,7 +1,7 @@
--- Other mods: mod.find("ui-mod").exports
+-- Other mods: mod.find("wide-menus").exports
 -- Native ListMenu screens widen on their own. Custom screens set
 -- state.uiModLayout to "wide", "centered", or "classic", or call register.
--- Declare optional_dependencies: ["ui-mod"] so find() works at load time.
+-- Declare optional_dependencies: ["wide-menus"] so find() works at load time.
 
 return function(ctx)
   local LAYOUTS = { wide = true, centered = true, classic = true }
@@ -12,7 +12,7 @@ return function(ctx)
     if type(spec) == "table" then layout = spec.layout end
     if layout == nil then layout = "wide" end
     if not LAYOUTS[layout] then
-      error("ui-mod: layout must be 'wide', 'centered', or 'classic'")
+      error("wide-menus: layout must be 'wide', 'centered', or 'classic'")
     end
     return layout
   end
@@ -71,7 +71,7 @@ return function(ctx)
     drawTruncated = ctx.drawTruncated,
     wrapDraw = ctx.wrapDraw,
     register = function(id, spec)
-      assert(type(id) == "string" and id ~= "", "ui-mod.register needs a screen id")
+      assert(type(id) == "string" and id ~= "", "wide-menus.register needs a screen id")
       ctx.layouts[id] = normalize(spec)
     end,
     claim = function(target) return ctx.applyLayout(target, "wide") end,

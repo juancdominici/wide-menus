@@ -1,4 +1,4 @@
--- Standalone: luajit mods/ui-mod/tests/ui_mod_api_test.lua
+-- Standalone: luajit mods/wide-menus/tests/ui_mod_api_test.lua
 -- The export surface other native-menu mods consume.
 package.path = "./?.lua;./?/init.lua;" .. package.path
 
@@ -7,10 +7,10 @@ local Screens = require("src.ui.Screens")
 local StateStack = require("src.core.StateStack")
 local ListMenu = require("src.ui.ListMenu")
 
-local run = T.sdk.loadMod("mods/ui-mod")
+local run = T.sdk.loadMod("mods/wide-menus")
 T.eq(#run.errors, 0, "loads clean (" .. tostring(run.errors[1]) .. ")")
 
-local api = run.loader.exports["ui-mod"]
+local api = run.loader.exports["wide-menus"]
 T.check(api ~= nil, "publishes exports")
 T.eq(api.WIDTH, 304, "WIDTH is the wide canvas")
 T.eq(api.COLS, 38, "COLS matches 304/8")

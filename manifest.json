@@ -1,5 +1,5 @@
 {
-  "id": "ui-mod",
+  "id": "wide-menus",
   "name": "Wide Menus",
   "version": "0.1.0",
   "api": 2,
@@ -12,6 +12,6 @@
   "dependencies": [],
   "optional_dependencies": [],
   "conflicts": [],
-  "description": "Widens OPTIONS/lists/mod screens to 304px; party stays classic-centered. Other mods opt in via mod.find(\"ui-mod\").exports.",
+  "description": "Widens OPTIONS/lists/mod screens to 304px; party stays classic-centered. Other mods opt in via mod.find(\"wide-menus\").exports.",
   "github": "juancdominici/wide-menus"
 }
