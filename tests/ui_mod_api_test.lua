@@ -125,6 +125,30 @@ local _, pinGame = push("NativeWide")
 local pinned = Menu.new(pinGame, { { label = "DATA" } },
   { tx = 12, ty = 8, tw = 8 })
 T.eq(pinned.tx, 30, "right-anchored overlay on a wide list pins to 304")
+
+-- Celadon vending / prize: TextBox on a wide list must dock the full 304
+-- box. Stretching Font.drawBox while setUIAnchor stays at 160 tears it.
+local TextBox = require("src.render.TextBox")
+local Font = require("src.render.Font")
+pinGame.renderer = Renderer
+local box = TextBox.new(pinGame, "FRESH WATER\npopped out!")
+pinGame.stack:push(box)
+local anchored, drawn
+local origAnchor, origBox = Renderer.setUIAnchor, Font.drawBox
+function Renderer:setUIAnchor(x, y, w, h, anchor)
+  anchored = { x = x, y = y, w = w, h = h, anchor = anchor }
+end
+function Font.drawBox(tx, ty, tw, th)
+  drawn = { tx = tx, ty = ty, tw = tw, th = th }
+end
+box:draw()
+Renderer.setUIAnchor = origAnchor
+Font.drawBox = origBox
+T.eq(anchored and anchored.w, 304,
+  "TextBox overlay on a wide list docks the full canvas width")
+T.eq(drawn and drawn.tw, 38,
+  "TextBox overlay on a wide list draws a 38-column box")
+T.eq(box.boxTw, 20, "TextBox restores classic tw after draw")
 Renderer.uiSize = origUiSize
 
 T.raises(function() api.register("Bad", "huge") end,

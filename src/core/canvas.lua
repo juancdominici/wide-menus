@@ -55,11 +55,20 @@ return function(ctx)
         end
         return realRect(mode, x, y, w, h, ...)
       end
+      -- DYNAMIC UI docks whatever setUIAnchor reports. Stretching drawBox
+      -- to 304 while the anchor stays 160 rips the box in half (Celadon
+      -- vending / prize confirm overlays).
+      local realAnchor = Renderer.setUIAnchor
+      function Renderer:setUIAnchor(x, y, w, h, anchor)
+        local tx, ty, tw, th = expandDrawBox(x / 8, y / 8, w / 8, h / 8)
+        return realAnchor(self, tx * 8, ty * 8, tw * 8, th * 8, anchor)
+      end
       local ok, err = xpcall(function()
         return draw(self, unpack(args))
       end, debug.traceback)
       Font.drawBox = realBox
       love.graphics.rectangle = realRect
+      Renderer.setUIAnchor = realAnchor
       if not ok then error(err) end
     end
   end

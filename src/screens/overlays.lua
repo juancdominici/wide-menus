@@ -42,14 +42,32 @@ return function(ctx)
     love.graphics.setColor(1, 1, 1, 1)
   end
 
+  local function onWideParent(self)
+    local parent = opaqueWideParent(self.game, self)
+    return select(1, ctx.Renderer:uiSize()) > CLASSIC_W and parent
+        and not parent.isClassicCenteredOnWide
+  end
+
   local origChoiceDraw = ChoiceBox.draw
   function ChoiceBox:draw()
-    local parent = opaqueWideParent(self.game, self)
-    if select(1, ctx.Renderer:uiSize()) > CLASSIC_W and parent
-        and not parent.isClassicCenteredOnWide then
+    if onWideParent(self) then
       self.tx = colsNow() - self.tw
     end
     return origChoiceDraw(self)
+  end
+
+  -- Grow the dialogue window with the canvas so setUIAnchor, the border,
+  -- and the ▼ arrow stay on the same box. wrapDraw already stretches
+  -- Font.drawBox; without this the arrow sits at column 18 on a 38-col box.
+  local origTextDraw = TextBox.draw
+  function TextBox:draw()
+    if not onWideParent(self) or self.boxTw ~= 20 or (self.boxTx or 0) ~= 0 then
+      return origTextDraw(self)
+    end
+    local tw = self.boxTw
+    self.boxTw = colsNow()
+    origTextDraw(self)
+    self.boxTw = tw
   end
 
   local origMenuNew = Menu.new

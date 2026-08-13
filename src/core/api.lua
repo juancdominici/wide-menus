@@ -56,6 +56,7 @@ return function(ctx)
       ctx.claimCentered(target)
     else
       target.keepClassicUi = nil
+      target.uiModLayout = "wide"
       ctx.claimWide(target)
       ctx.wrapDraw(target)
     end
