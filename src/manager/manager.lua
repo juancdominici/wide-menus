@@ -2,17 +2,18 @@ return function(ctx)
   local Font = ctx.Font
   local Theme = require("src.ui.Theme")
   local Strings = require("src.core.Strings")
-  local OptionRows = require("src.ui.OptionRows")
   local ManagerState = require("src.mods.ManagerState")
-  local Renderer, W, H, COLS = ctx.Renderer, ctx.W, ctx.H, ctx.COLS
-  local CLASSIC_W, drawTruncated = ctx.CLASSIC_W, ctx.drawTruncated
+  local W, H, COLS = ctx.W, ctx.H, ctx.COLS
+  local drawTruncated = ctx.drawTruncated
+  local isWideNow = ctx.isWideNow
   local LIST_TOP, LIST_ROWS = 3, 11
 
   local origDraw = ManagerState.draw
   local origDrawRows = ManagerState.drawRows
+  local origFooter = ManagerState.drawFooter
 
   function ManagerState:drawRows(rows)
-    if select(1, Renderer:uiSize()) <= CLASSIC_W then
+    if not isWideNow(self) then
       return origDrawRows(self, rows)
     end
     local last = math.min(#rows, self.scroll + LIST_ROWS - 1)
@@ -39,13 +40,32 @@ return function(ctx)
     end
   end
 
+  -- Classic footer sits on rows 15-16. A one-line prompt only needs 16, so
+  -- detail actions can use 15 without painting over A:CHOOSE / B:BACK.
+  function ManagerState:drawFooter(line1, line2)
+    if not isWideNow(self) then
+      return origFooter(self, line1, line2)
+    end
+    local inner = COLS - 3
+    if self.notice then
+      drawTruncated(self.notice, 16, 16 * 8, inner)
+      return
+    end
+    if line1 and line2 then
+      drawTruncated(line1, 16, 15 * 8, inner)
+      drawTruncated(line2, 16, 16 * 8, inner)
+    elseif line1 then
+      drawTruncated(line1, 16, 16 * 8, inner)
+    end
+  end
+
   function ManagerState:draw()
-    if select(1, Renderer:uiSize()) <= CLASSIC_W then
+    if not isWideNow(self) then
       return origDraw(self)
     end
     if self.screen == "options" then
-      OptionRows.draw(self.game, self.optionRows or {}, self.cursor,
-                      self.scroll or 0)
+      ctx.drawOptionRows(self.game, self.optionRows or {}, self.cursor,
+                         self.scroll or 0)
       love.graphics.setColor(0, 0, 0, 1)
       Font.draw(self.notice or Strings("B:DONE (NO RESTART)"), 8, 136)
       love.graphics.setColor(1, 1, 1, 1)

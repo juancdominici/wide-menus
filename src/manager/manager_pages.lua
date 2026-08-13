@@ -3,15 +3,16 @@ return function(ctx)
   local Theme = require("src.ui.Theme")
   local Strings = require("src.core.Strings")
   local ManagerState = require("src.mods.ManagerState")
-  local Renderer, COLS, CLASSIC_W = ctx.Renderer, ctx.COLS, ctx.CLASSIC_W
+  local COLS = ctx.COLS
   local drawTruncated, wordWrap = ctx.drawTruncated, ctx.wordWrap
+  local isWideNow = ctx.isWideNow
   local LIST_TOP = 3
 
   local origApply = ManagerState.drawApply
   local origDetail = ManagerState.drawDetail
 
   function ManagerState:drawApply()
-    if select(1, Renderer:uiSize()) <= CLASSIC_W then
+    if not isWideNow(self) then
       return origApply(self)
     end
     drawTruncated("PENDING CHANGES", 16, 2 * 8, COLS - 3)
@@ -40,7 +41,7 @@ return function(ctx)
   end
 
   function ManagerState:drawDetail()
-    if select(1, Renderer:uiSize()) <= CLASSIC_W then
+    if not isWideNow(self) then
       return origDetail(self)
     end
     local m = self.currentMod
@@ -69,11 +70,23 @@ return function(ctx)
       Font.drawCode(Theme.moreArrow, (COLS - 3) * 8, 10 * 8)
     end
     local rows = self:rowsForScreen()
-    local y = 11
-    for i, row in ipairs(rows) do
-      drawTruncated(row.label, 32, y * 8, COLS - 5)
+    local top, last = 11, 15
+    local slots = last - top + 1
+    local first = 1
+    if #rows > slots then
+      first = math.max(1, math.min(self.cursor - slots + 1, #rows - slots + 1))
+    end
+    local y = top
+    local shown = math.min(#rows, first + slots - 1)
+    local more = shown < #rows
+    local labelCols = more and (COLS - 6) or (COLS - 5)
+    for i = first, shown do
+      drawTruncated(rows[i].label, 32, y * 8, labelCols)
       if i == self.cursor then Font.drawCode(Theme.cursor, 24, y * 8) end
       y = y + 1
+    end
+    if more then
+      Font.drawCode(Theme.moreArrow, (COLS - 2) * 8, last * 8)
     end
     self:drawFooter("A:CHOOSE B:BACK")
   end
