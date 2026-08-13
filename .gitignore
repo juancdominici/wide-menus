@@ -1,0 +1,6 @@
+dist/
+*.zip
+*.modpkg
+Thumbs.db
+.DS_Store
+pack.sh

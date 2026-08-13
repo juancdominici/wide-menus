@@ -1,0 +1,17 @@
+{
+  "id": "ui-mod",
+  "name": "Wide Menus",
+  "version": "0.1.0",
+  "api": 2,
+  "entry": "main.lua",
+  "profile": "content",
+  "category": "UI",
+  "game_version": ">=0.0.0-0 <2.0.0",
+  "priority": 50,
+  "permissions": ["engine_internals"],
+  "dependencies": [],
+  "optional_dependencies": [],
+  "conflicts": [],
+  "description": "Widens OPTIONS/lists/mod screens to 304px; party stays classic-centered. Other mods opt in via mod.find(\"ui-mod\").exports.",
+  "github": "juancdominici/wide-menus"
+}

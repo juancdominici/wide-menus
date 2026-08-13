@@ -1,0 +1,61 @@
+name: Release
+
+# Packs an installable zip (files at the archive root) and attaches it to
+# the GitHub Release that triggered this workflow.
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  pack:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Pack zip
+        id: pack
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          VERSION="${TAG#v}"
+          MOD_ID="$(python3 -c "import json; print(json.load(open('manifest.json'))['id'])")"
+          staging="$RUNNER_TEMP/pkg"
+          out="$GITHUB_WORKSPACE/dist"
+          rm -rf "$staging" "$out"
+          mkdir -p "$staging" "$out"
+
+          git archive HEAD | tar -x -C "$staging"
+          rm -rf "$staging/.github" "$staging/tests"
+          rm -f "$staging/.gitattributes" "$staging/.gitignore" \
+            "$staging/.luarc.json" "$staging/.modkitignore" "$staging/"*.md
+
+          python3 - "$staging/manifest.json" "$VERSION" <<'PY'
+          import json, sys
+          path, version = sys.argv[1], sys.argv[2]
+          with open(path, encoding="utf-8") as fh:
+              manifest = json.load(fh)
+          manifest["version"] = version
+          with open(path, "w", encoding="utf-8") as fh:
+              json.dump(manifest, fh, indent=2, ensure_ascii=False)
+              fh.write("\n")
+          PY
+
+          zip_path="$out/${MOD_ID}-${VERSION}.zip"
+          (cd "$staging" && zip -qr "$zip_path" .)
+          echo "zip_path=$zip_path" >> "$GITHUB_OUTPUT"
+
+      - name: Upload release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ZIP_PATH: ${{ steps.pack.outputs.zip_path }}
+        run: |
+          set -euo pipefail
+          unzip -l "$ZIP_PATH"
+          gh release upload "${{ github.event.release.tag_name }}" \
+            "$ZIP_PATH" --clobber
