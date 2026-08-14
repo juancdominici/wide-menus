@@ -14,6 +14,8 @@ return function(ctx)
     "src.ui.PokedexMenu",
     "src.ui.BindingsMenu",
     "src.mods.ManagerState",
+    -- Gold pack/dex gfx is 160; mart buy is laid out in screens/mart.lua.
+    "src.ui.gen2.MartMenu",
     "src.ui.gen2.OptionsMenu",
     "src.ui.gen2.PartyMenu",
   }
@@ -30,7 +32,7 @@ return function(ctx)
     OptionsMenu = true, Gen2OptionsMenu = true,
     ManagerState = true,
     BagMenu = true,
-    ShopMenu = true,
+    ShopMenu = true, Gen2MartMenu = true,
     PokedexMenu = true,
     BindingsMenu = true,
     PartyMenu = true, Gen2PartyMenu = true,
