@@ -1,20 +1,21 @@
 # Wide Menus
 
 A UI mod for [gen1recomp](https://github.com/bryanthaboi/gen1recomp). It stretches text-heavy menus to the same **304×144** canvas as
-**OPTIONS → BATTLE LAYOUT → WIDE**, so labels, values, and list rows have room to breathe.
+**OPTIONS → BATTLE LAYOUT → WIDE**, so labels, values, and list rows have room to breathe. Red/Blue and Gold.
 
 Overworld dialogue, naming, the trainer card, Oak's intro, and the START menu stay Game Boy sized.
-**Version 0.1.0** · id `wide-menus` · category UI · no extra options
+**Version 0.2.0** · id `wide-menus` · category UI · no extra options
 
 ## What it changes
 
 These screens fill the wide canvas:
 
-- OPTIONS
+- OPTIONS (Red/Blue and Gold)
 - Mod Manager (F10)
-- Bag, shop, and Pokédex lists
+- Bag, shop, and Pokédex lists (Gold pack and Pokédex stay classic)
 - Button bindings
 - Party list (names on the left, HP/level on the right; bottom prompt spans the width)
+- Gold mart BUY (SELL stays classic-centered on the pack art)
 - Full-screen menus registered by other mods (opaque screens)
 
 On a wide OPTIONS row, the label sits on the left and the value on the right of the same line. List menus spread the item name and the right-hand column (price, quantity, and so on) across the extra width. Money boxes and footers grow with the canvas.
@@ -34,6 +35,7 @@ These keep the original 160×144 layout:
 - Pokédex entries
 - Town map, diploma, credits, Hall of Fame
 - PC boxes, move tutor, Fly list, slot machine
+- Gold pack, Pokédex, Pokégear, save, clock, and intro
 
 ## Install
 
