@@ -1,8 +1,7 @@
 -- Wide Menus: stretch text-heavy list / options surfaces to the same
 -- 304x144 canvas as BATTLE LAYOUT WIDE.
 --
--- Full-bleed wide: OPTIONS, Mod Manager, bag/shop/dex, Bindings, mod screens.
--- Classic-centered on wide: party (and overlays above it).
+-- Full-bleed wide: OPTIONS, Mod Manager, bag/shop/dex, party, Bindings, mod screens.
 -- Classic 160: overworld dialogue, naming, trainer card, Oak intro, START.
 --
 -- Requires engine_internals. Extra .lua files load via mod:read, not require.
