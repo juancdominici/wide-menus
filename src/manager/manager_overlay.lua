@@ -3,12 +3,13 @@ return function(ctx)
   local Theme = require("src.ui.Theme")
   local Strings = require("src.core.Strings")
   local ManagerState = require("src.mods.ManagerState")
-  local Renderer, COLS, CLASSIC_W = ctx.Renderer, ctx.COLS, ctx.CLASSIC_W
+  local COLS = ctx.COLS
   local drawTruncated, wordWrap = ctx.drawTruncated, ctx.wordWrap
+  local isWideNow = ctx.isWideNow
 
   local origOverlay = ManagerState.drawOverlay
   function ManagerState:drawOverlay()
-    if select(1, Renderer:uiSize()) <= CLASSIC_W then
+    if not isWideNow(self) then
       return origOverlay(self)
     end
     local overlay = self.overlay

@@ -1,17 +1,17 @@
 return function(ctx)
-  local Font, Renderer = ctx.Font, ctx.Renderer
+  local Font = ctx.Font
   local Strings = require("src.core.Strings")
   local Theme = require("src.ui.Theme")
   local ListMenu = require("src.ui.ListMenu")
-  local H, CLASSIC_W = ctx.H, ctx.CLASSIC_W
+  local H = ctx.H
 
   local origListDraw = ListMenu.draw
   function ListMenu:draw()
-    local uiw = select(1, Renderer:uiSize())
-    if uiw <= CLASSIC_W then
+    if not ctx.isWideNow(self) then
       return origListDraw(self)
     end
-    local cols = math.floor(uiw / 8)
+    local cols = math.floor(ctx.W / 8)
+    local uiw = ctx.W
     love.graphics.setColor(1, 1, 1, 1)
     love.graphics.rectangle("fill", 0, 0, uiw, H)
     love.graphics.setColor(0, 0, 0, 1)

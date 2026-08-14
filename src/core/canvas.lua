@@ -3,16 +3,15 @@
 return function(ctx)
   local Renderer, Font = ctx.Renderer, ctx.Font
   local PaletteFX = require("src.render.PaletteFX")
-  local W, H, CLASSIC_W = ctx.W, ctx.H, ctx.CLASSIC_W
+  local W, H = ctx.W, ctx.H
   local colsNow = ctx.colsNow
 
   local origWhole = PaletteFX.whole
   function PaletteFX.whole(colors)
-    local uiw, uih = Renderer:uiSize()
-    if uiw > CLASSIC_W then
-      return PaletteFX.zone(colors, 0, 0,
-                            math.floor(uiw / 8) - 1,
-                            math.floor(uih / 8) - 1)
+    if ctx.isWideNow() then
+      local c = colsNow()
+      return PaletteFX.zone(colors, 0, 0, c - 1,
+                            math.floor(H / 8) - 1)
     end
     return origWhole(colors)
   end
@@ -40,7 +39,7 @@ return function(ctx)
   local function withWideCanvas(draw)
     return function(self, ...)
       local args = { ... }
-      if select(1, Renderer:uiSize()) <= CLASSIC_W then
+      if not ctx.isWideNow(self) then
         return draw(self, unpack(args))
       end
       local realBox = Font.drawBox
@@ -77,8 +76,94 @@ return function(ctx)
   local wrappedDraws = setmetatable({}, { __mode = "k" })
 
   ctx.withWideCanvas = withWideCanvas
+
+  -- Gold overlays print on the 20-col grid. Stretch full-width boxes and
+  -- pin right-anchored widgets (GIVE/TAKE, YES/NO) so labels move with them.
+  local function withChromeWide(draw)
+    local okChrome, Chrome = pcall(require, "src.ui.gen2.Chrome")
+    if not okChrome or type(Chrome) ~= "table" then
+      return draw()
+    end
+    local cols = ctx.COLS
+    local shift = cols - 20
+    local origBox, origPrint, origCursor = Chrome.box, Chrome.print, Chrome.cursor
+    function Chrome.box(tx, ty, tw, th)
+      tx, ty, tw, th = tx or 0, ty or 0, tw or 0, th or 0
+      if tw == 20 and tx == 0 then
+        tw = cols
+      elseif tx + tw == 20 then
+        tx = cols - tw
+      end
+      return origBox(tx, ty, tw, th)
+    end
+    function Chrome.print(text, tx, ty)
+      if (tx or 0) >= 10 then tx = tx + shift end
+      return origPrint(text, tx, ty)
+    end
+    function Chrome.cursor(tx, ty, hollow)
+      if (tx or 0) >= 10 then tx = tx + shift end
+      return origCursor(tx, ty, hollow)
+    end
+    local ok, err = xpcall(draw, debug.traceback)
+    Chrome.box, Chrome.print, Chrome.cursor = origBox, origPrint, origCursor
+    if not ok then error(err) end
+  end
+
+  function ctx.installWidescreen(target)
+    if not ctx.isGen2 or type(target) ~= "table" then return target end
+    if target._uiModWideScreen then return target end
+    target._uiModWideScreen = true
+    function target:drawsWidescreen()
+      return not self.isClassicCenteredOnWide
+    end
+    function target:drawWidescreen(winW, winH)
+      love.graphics.setColor(1, 1, 1, 1)
+      love.graphics.rectangle("fill", 0, 0, winW, winH)
+      local scale = math.max(1, math.floor(math.min(winW / W, winH / H)))
+      love.graphics.push()
+      love.graphics.translate(
+        math.floor((winW - W * scale) / 2),
+        math.floor((winH - H * scale) / 2))
+      love.graphics.scale(scale, scale)
+      ctx.setForceWide(true)
+      local ok, err = xpcall(function()
+        -- Gold only calls the top screen's drawWidescreen. Transparent
+        -- overlays (GIVE/TAKE, mail) must paint the party underneath or
+        -- the list disappears. Wide opaque menus (mart) must not take
+        -- this path: a leftover translate clipped their 304 layout.
+        if self.isOpaque == false and not self.isWideMenuLayout then
+          local stack = self.game and self.game.stack
+          local states = stack and stack.states
+          if states then
+            local base = stack.visibleBase and stack:visibleBase() or 1
+            for i = base, #states do
+              local s = states[i]
+              if s == self then break end
+              if s and s.draw then s:draw() end
+            end
+          end
+          if self.draw then withChromeWide(function() self:draw() end) end
+        elseif self.draw then
+          self:draw()
+        end
+      end, debug.traceback)
+      ctx.setForceWide(false)
+      love.graphics.pop()
+      if not ok then error(err) end
+    end
+    return target
+  end
+
+  local origClaim = ctx.claimWide
+  function ctx.claimWide(target)
+    origClaim(target)
+    ctx.installWidescreen(target)
+    return target
+  end
+
   function ctx.wrapDraw(M)
     if type(M) ~= "table" or type(M.draw) ~= "function" then return M end
+    if M._uiModSkipWrap then return M end
     if M._uiModWideDraw or wrappedDraws[M.draw] then
       M._uiModWideDraw = true
       return M

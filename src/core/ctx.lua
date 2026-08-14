@@ -1,12 +1,25 @@
 local Renderer = require("src.render.Renderer")
 local Font = require("src.render.Font")
 local WideBattle = require("src.battle.WideBattle")
+local GameVersion = require("src.core.GameVersion")
+local Game = require("src.core.Game")
 
 local W, H = WideBattle.WIDTH, WideBattle.HEIGHT -- 304, 144
 local COLS = math.floor(W / 8) -- 38
 local CLASSIC_W = Renderer.WIDTH
+-- Gold's Game require is an empty proxy (pairs/next see nothing). That is
+-- also how the headless SDK marks a Gen 2 load without setting GameVersion.
+local isGen2 = (GameVersion.generation and GameVersion.generation() == 2)
+            or (GameVersion.isGold and GameVersion.isGold())
+            or next(Game) == nil
+            or false
+
+-- Set while a Gold drawWidescreen is painting the 304 panel, so draw()
+-- uses the wide layout even though Renderer stays at 160.
+local forceWide = false
 
 local function colsNow()
+  if forceWide then return COLS end
   return math.floor(select(1, Renderer:uiSize()) / 8)
 end
 
@@ -77,6 +90,15 @@ local function inheritWideUiSize(self)
   return CLASSIC_W, Renderer.HEIGHT
 end
 
+local function isWideNow(self)
+  if forceWide then return true end
+  if self and classicBattleUnder(self.game) then return false end
+  -- Gold's stack:draw blit is still the 160 panel; only drawWidescreen
+  -- (forceWide) paints 304.
+  if isGen2 then return false end
+  return select(1, Renderer:uiSize()) > CLASSIC_W
+end
+
 local function claimWide(target)
   if type(target) ~= "table" then return end
   target.isWideMenuLayout = true
@@ -85,10 +107,11 @@ end
 
 return {
   W = W, H = H, COLS = COLS, CLASSIC_W = CLASSIC_W,
-  Renderer = Renderer, Font = Font,
+  Renderer = Renderer, Font = Font, isGen2 = isGen2,
   colsNow = colsNow, wordWrap = wordWrap, drawTruncated = drawTruncated,
   classicBattleUnder = classicBattleUnder,
   opaqueWideParent = opaqueWideParent,
   menuUiSize = menuUiSize, inheritWideUiSize = inheritWideUiSize,
-  claimWide = claimWide,
+  isWideNow = isWideNow, claimWide = claimWide,
+  setForceWide = function(on) forceWide = on and true or false end,
 }

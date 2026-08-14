@@ -44,8 +44,7 @@ return function(ctx)
 
   local function onWideParent(self)
     local parent = opaqueWideParent(self.game, self)
-    return select(1, ctx.Renderer:uiSize()) > CLASSIC_W and parent
-        and not parent.isClassicCenteredOnWide
+    return ctx.isWideNow(self) and parent and not parent.isClassicCenteredOnWide
   end
 
   local origChoiceDraw = ChoiceBox.draw
