@@ -14,11 +14,26 @@ return function(ctx)
     "src.ui.PokedexMenu",
     "src.ui.BindingsMenu",
     "src.mods.ManagerState",
+    "src.ui.gen2.OptionsMenu",
+    "src.ui.gen2.PartyMenu",
   }
 
   local DENY_MOD_WIDE = {
     NamingScreen = true, OakSpeech = true, TrainerCard = true,
     SummaryMenu = true, DexEntryMenu = true, TownMap = true, Diploma = true,
+    Gen2NamingScreen = true, Gen2OakSpeech = true, Gen2TrainerCard = true,
+    Gen2SummaryMenu = true, Gen2Diploma = true,
+  }
+
+  -- Pair Gen 1 ids with the Gen2-prefixed ids Gold actually pushes.
+  local ALLOW_WIDE = {
+    OptionsMenu = true, Gen2OptionsMenu = true,
+    ManagerState = true,
+    BagMenu = true,
+    ShopMenu = true,
+    PokedexMenu = true,
+    BindingsMenu = true,
+    PartyMenu = true, Gen2PartyMenu = true,
   }
 
   for _, name in ipairs(FULLSCREEN_MODULES) do
@@ -34,10 +49,7 @@ return function(ctx)
     if layout then return layout end
     if not inst or not inst.isOpaque then return nil end
     if DENY_MOD_WIDE[id] then return nil end
-    local allowed = id == "OptionsMenu" or id == "ManagerState"
-      or id == "BagMenu" or id == "ShopMenu" or id == "PokedexMenu"
-      or id == "BindingsMenu" or id == "PartyMenu"
-    if (factory and factory.__modOwned) or allowed then return "wide" end
+    if (factory and factory.__modOwned) or ALLOW_WIDE[id] then return "wide" end
     return nil
   end
 
@@ -61,6 +73,13 @@ return function(ctx)
     QuarantineReport = true, BoxMenu = true, MoveLearnMenu = true,
     PlayerPC = true, FlyMenu = true, QuantityBox = true, PicBox = true,
     StartMenu = true,
+    Gen2TitleState = true, Gen2BattleState = true, Gen2StartMenu = true,
+    Gen2BoxMenu = true, Gen2PcMenu = true, Gen2Credits = true,
+    Gen2HallOfFame = true, Gen2SlotMachine = true, Gen2TradeAnim = true,
+    Gen2MainMenu = true, Gen2SaveMenu = true, Gen2Pokegear = true,
+    Gen2CopyrightSplash = true, Gen2GameFreakPresents = true,
+    Gen2GoldSilverIntro = true, Gen2InitClock = true, Gen2NamePick = true,
+    Gen2PackMenu = true, Gen2PokedexMenu = true,
   }
   for k, v in pairs(DENY_MOD_WIDE) do KEEP_CLASSIC[k] = v end
 
@@ -81,7 +100,8 @@ return function(ctx)
       end
       local parent = opaqueWideParent(state.game, state)
       if parent and not parent.isClassicCenteredOnWide then
-        wrapDraw(state)
+        -- wrapDraw shifts Gold overlay boxes (GIVE/TAKE) without the labels.
+        ctx.installWidescreen(state)
       end
       return
     end
@@ -90,6 +110,9 @@ return function(ctx)
     if not layout then
       if state.isWideMenuLayout then return end
       if not id or KEEP_CLASSIC[id] then return end
+      -- Gold cinema/clock/pack are opaque and must stay 160. Unknown Gen 2
+      -- screens default classic; Gen 1 still widens other mods' menus.
+      if ctx.isGen2 and not ALLOW_WIDE[id] then return end
       layout = "wide"
     end
     ctx.applyLayout(state, layout)
