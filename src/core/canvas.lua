@@ -113,10 +113,38 @@ return function(ctx)
     if not ctx.isGen2 or type(target) ~= "table" then return target end
     if target._uiModWideScreen then return target end
     target._uiModWideScreen = true
+    -- Gold's own 160-centered surround. Used when the per-screen toggle is
+    -- off so BUY prices / Chrome boxes keep the cart grid.
+    local nativeDrawWide = target.drawWidescreen
     function target:drawsWidescreen()
-      return not self.isClassicCenteredOnWide
+      -- Always stay on Gold's widescreen branch. Returning false while
+      -- drawWidescreen is still on the module hits Game2's opaque safety
+      -- net, which calls drawWidescreen AND blits the 160 canvas -- that
+      -- is the live-toggle ghosting.
+      if self.isOpaque == false then
+        return ctx.opaqueWideParent(self.game, self) ~= nil
+      end
+      return true
     end
     function target:drawWidescreen(winW, winH)
+      local useWide = not self.keepClassicUi and not self.isClassicCenteredOnWide
+        and ctx.layoutEnabled(self)
+      if not useWide then
+        if type(nativeDrawWide) == "function" then
+          return nativeDrawWide(self, winW, winH)
+        end
+        love.graphics.setColor(1, 1, 1, 1)
+        love.graphics.rectangle("fill", 0, 0, winW, winH)
+        local scale = math.max(1, math.floor(math.min(winW / ctx.CLASSIC_W, winH / H)))
+        love.graphics.push()
+        love.graphics.translate(
+          math.floor((winW - ctx.CLASSIC_W * scale) / 2),
+          math.floor((winH - H * scale) / 2))
+        love.graphics.scale(scale, scale)
+        if self.draw then self:draw() end
+        love.graphics.pop()
+        return
+      end
       love.graphics.setColor(1, 1, 1, 1)
       love.graphics.rectangle("fill", 0, 0, winW, winH)
       local scale = math.max(1, math.floor(math.min(winW / W, winH / H)))

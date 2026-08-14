@@ -40,6 +40,9 @@ return function(mod)
   end
 
   local ctx = compiled[1]()
+  local schema = loadRel("src/core/schema.lua")()
+  mod.options:define(schema)
+  ctx.getOption = function(key) return mod.options:get(key) end
   for i = 2, #compiled do
     compiled[i]()(ctx)
   end
@@ -48,7 +51,7 @@ return function(mod)
     mod.exports[k] = v
   end
 
-  mod.log:info("wide menus 0.2.0 (%dx%d, party centered, %s)",
+  mod.log:info("wide menus 0.3.0 (%dx%d, party centered, %s)",
                ctx.W, ctx.H, ctx.isGen2 and "gen2" or "gen1")
 end
 

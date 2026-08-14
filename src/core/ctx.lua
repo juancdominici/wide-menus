@@ -59,12 +59,48 @@ local function classicBattleUnder(game)
   return false
 end
 
+-- Screen id -> options.lua key. Unlisted claimed screens use "others".
+local SCREEN_KEYS = {
+  OptionsMenu = "rby_options",
+  BagMenu = "rby_bag",
+  ShopMenu = "rby_shop",
+  PokedexMenu = "rby_pokedex",
+  PartyMenu = "rby_party",
+  BindingsMenu = "rby_controls",
+  Gen2OptionsMenu = "gs_options",
+  Gen2MartMenu = "gs_mart",
+  Gen2PartyMenu = "gs_party",
+  ManagerState = "manager",
+}
+
+local ctx
+
+local function optionOn(key)
+  if type(ctx.getOption) ~= "function" then return true end
+  local v = ctx.getOption(key)
+  if v == nil then return true end
+  return v and true or false
+end
+
+local function optionKey(state)
+  local id = type(state) == "string" and state
+          or (type(state) == "table" and state.screenId)
+  return SCREEN_KEYS[id] or "others"
+end
+
+local function layoutEnabled(state)
+  if type(state) ~= "table" then return true end
+  if state.keepClassicUi then return false end
+  return optionOn(optionKey(state))
+end
+
 local function opaqueWideParent(game, self)
   local stack = game and game.stack
   if not stack then return nil end
   for i = #stack.states, 1, -1 do
     local s = stack.states[i]
-    if s and s ~= self and s.isOpaque and s.isWideMenuLayout then
+    if s and s ~= self and s.isOpaque and s.isWideMenuLayout
+        and layoutEnabled(s) then
       return s
     end
   end
@@ -73,6 +109,9 @@ end
 
 local function menuUiSize(self)
   if self and classicBattleUnder(self.game) then
+    return CLASSIC_W, Renderer.HEIGHT
+  end
+  if self and not layoutEnabled(self) then
     return CLASSIC_W, Renderer.HEIGHT
   end
   return W, H
@@ -93,6 +132,7 @@ end
 local function isWideNow(self)
   if forceWide then return true end
   if self and classicBattleUnder(self.game) then return false end
+  if self and self.isOpaque and not layoutEnabled(self) then return false end
   -- Gold's stack:draw blit is still the 160 panel; only drawWidescreen
   -- (forceWide) paints 304.
   if isGen2 then return false end
@@ -105,7 +145,7 @@ local function claimWide(target)
   target.uiSize = menuUiSize
 end
 
-return {
+ctx = {
   W = W, H = H, COLS = COLS, CLASSIC_W = CLASSIC_W,
   Renderer = Renderer, Font = Font, isGen2 = isGen2,
   colsNow = colsNow, wordWrap = wordWrap, drawTruncated = drawTruncated,
@@ -113,5 +153,7 @@ return {
   opaqueWideParent = opaqueWideParent,
   menuUiSize = menuUiSize, inheritWideUiSize = inheritWideUiSize,
   isWideNow = isWideNow, claimWide = claimWide,
+  optionOn = optionOn, optionKey = optionKey, layoutEnabled = layoutEnabled,
   setForceWide = function(on) forceWide = on and true or false end,
 }
+return ctx

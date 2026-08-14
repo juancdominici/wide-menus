@@ -218,7 +218,8 @@ return function(ctx)
       for i = #states, 1, -1 do
         local s = states[i]
         if s and s.isOpaque then
-          if s.isWideMenuLayout and not s.isClassicCenteredOnWide then
+          if s.isWideMenuLayout and not s.isClassicCenteredOnWide
+              and ctx.layoutEnabled(s) then
             return nil
           end
           break

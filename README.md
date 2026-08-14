@@ -1,20 +1,19 @@
 # Wide Menus
 
 A UI mod for [gen1recomp](https://github.com/bryanthaboi/gen1recomp). It stretches text-heavy menus to the same **304×144** canvas as
-**OPTIONS → BATTLE LAYOUT → WIDE**, so labels, values, and list rows have room to breathe. Red/Blue and Gold.
+**OPTIONS → BATTLE LAYOUT → WIDE**, so labels, values, and list rows have room to breathe. Red/Blue/Yellow and Gold.
 
 Overworld dialogue, naming, the trainer card, Oak's intro, and the START menu stay Game Boy sized.
-**Version 0.2.0** · id `wide-menus` · category UI · no extra options
+**Version 0.3.0** · id `wide-menus` · category UI · per-screen toggles
 
 ## What it changes
 
-These screens fill the wide canvas:
+These screens fill the wide canvas (each one is a toggle in the mod's OPTIONS, all on by default):
 
-- OPTIONS (Red/Blue and Gold)
+- OPTIONS (Red/Blue/Yellow and Gold; separate toggles)
 - Mod Manager (F10)
-- Bag, shop, and Pokédex lists (Gold pack and Pokédex stay classic)
-- Button bindings
-- Party list (names on the left, HP/level on the right; bottom prompt spans the width)
+- Bag, shop, Pokédex, and button bindings (Red/Blue/Yellow)
+- Party list (Red/Blue/Yellow and Gold; names on the left, HP/level on the right)
 - Gold mart BUY (SELL stays classic-centered on the pack art)
 - Full-screen menus registered by other mods (opaque screens)
 
@@ -44,7 +43,7 @@ These keep the original 160×144 layout:
 3. Enable **Wide Menus**. The first time, grant **PATCHES ENGINE CODE** (`engine_internals`) — the mod has to wrap shared UI drawing to stretch those screens.
 4. Apply / restart when the manager asks.
 
-You can also toggle it in-game with **F10** (Mod Manager). There is nothing to configure after that.
+You can also toggle it in-game with **F10** (Mod Manager). Open **OPTIONS** on Wide Menus to turn individual screens back to 160×144. Everything starts **ON** (the previous always-wide behavior).
 
 ## Development
 

@@ -6,6 +6,7 @@ return {
   differences = {
     changed = {
       "OPTIONS / Mod Manager / bag / shop / dex / party use a 304x144 UI surface",
+      "Each of those screens has an ON/OFF toggle in the mod manager (all on by default)",
       "Opaque screens registered by other mods are widened automatically",
       "Other mods opt in/out with uiModLayout or mod.find(\"wide-menus\").exports",
       "Option rows put label and value on one line when wide",

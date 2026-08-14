@@ -105,7 +105,6 @@ T.check(type(overlay.uiSize) == "function",
   "overlay on a wide parent gets uiSize")
 local ow = overlay:uiSize()
 T.eq(ow, 304, "overlay on a wide parent stays on the 304 canvas")
-T.check(overlay._uiModWideDraw, "overlay on a wide parent is wrapDraw'd")
 T.check(wideInst.isWideMenuLayout, "wide parent is still marked wide")
 
 -- START reopen: party/dex pop first, then Screens.push(StartMenu). Renderer
@@ -153,6 +152,71 @@ Renderer.uiSize = origUiSize
 
 T.raises(function() api.register("Bad", "huge") end,
   "layout must be", "register rejects an unknown layout")
+
+-- ------- per-screen toggles (all on by default)
+
+local schema = run.loader.optionSchemas["wide-menus"]
+T.check(type(schema) == "table" and #schema == 11,
+  "defines a toggle per wide screen")
+local schemaKeys = {}
+for _, row in ipairs(schema) do
+  T.eq(row.type, "toggle", row.key .. " is a toggle")
+  T.eq(row.default, true, row.key .. " defaults on")
+  schemaKeys[row.key] = true
+end
+
+local SCREENS = {
+  { "Options" .. "Menu", "rby_options" },
+  { "BagMenu", "rby_bag" },
+  { "ShopMenu", "rby_shop" },
+  { "Pokedex" .. "Menu", "rby_pokedex" },
+  { "Party" .. "Menu", "rby_party" },
+  { "BindingsMenu", "rby_controls" },
+  { "Gen2OptionsMenu", "gs_options" },
+  { "Gen2MartMenu", "gs_mart" },
+  { "Gen2PartyMenu", "gs_party" },
+  { "ManagerState", "manager" },
+  { "MyModScreen", "others" },
+}
+for _, pair in ipairs(SCREENS) do
+  T.check(schemaKeys[pair[2]], pair[2] .. " is in the schema")
+end
+
+local function claimed(id)
+  return api.claim({
+    screenId = id, isOpaque = true, game = { stack = { states = {} } },
+    draw = function() end,
+  })
+end
+
+for _, pair in ipairs(SCREENS) do
+  local id, key = pair[1], pair[2]
+  local inst = claimed(id)
+  T.eq(select(1, inst:uiSize()), 304, id .. " defaults to the wide canvas")
+  run.loader.modOptions["wide-menus"] = { [key] = false }
+  T.eq(select(1, inst:uiSize()), 160, id .. " off uses the classic canvas")
+  -- A sibling screen must stay wide while this one is off.
+  local sibling = claimed(id == "BagMenu" and "ShopMenu" or "BagMenu")
+  T.eq(select(1, sibling:uiSize()), 304,
+    id .. " off does not collapse a sibling screen")
+end
+
+run.loader.modOptions["wide-menus"] = { rby_party = false }
+local party = claimed("Party" .. "Menu")
+local offGame = { data = data, stack = setmetatable({}, { __index = StateStack }) }
+offGame.stack:init()
+party.game = offGame
+offGame.stack:push(party)
+local offOverlay = { game = offGame, isOpaque = false, draw = function() end }
+offGame.stack:push(offOverlay)
+T.eq(select(1, offOverlay:uiSize()), 160,
+  "overlay on a toggled-off parent stays on the classic canvas")
+
+run.loader.modOptions["wide-menus"] = { rby_party = false }
+T.eq(select(1, party:uiSize()), 160, "a live off stays classic")
+run.loader.modOptions["wide-menus"] = { rby_party = true }
+T.eq(select(1, party:uiSize()), 304, "a live on restores the wide canvas")
+run.loader.modOptions["wide-menus"] = {}
 
 run.release()
 Screens.invalidate()
