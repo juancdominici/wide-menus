@@ -1,7 +1,6 @@
 return function(ctx)
   local Font = ctx.Font
   local Theme = require("src.ui.Theme")
-  local OptionsMenu = require("src.ui.OptionsMenu")
   local Strings = require("src.core.Strings")
   local H, COLS = ctx.H, ctx.COLS
   local isWideNow = ctx.isWideNow
@@ -21,7 +20,8 @@ return function(ctx)
       return "TYPE " .. tostring(options.frame or 1)
     end
     if type(row.text) == "function" then
-      return tostring(row.text(options) or "")
+      local ok, text = pcall(row.text, options)
+      return ok and tostring(text or "") or "?"
     end
     if row.values then
       local value = options[row.key]
@@ -106,16 +106,29 @@ return function(ctx)
     love.graphics.setColor(1, 1, 1, 1)
   end
 
-  local origDraw = OptionsMenu.draw
-  function OptionsMenu:draw()
-    if not isWideNow(self) then
-      return origDraw(self)
+  local function patchDraw(M, wideDraw)
+    if type(M) ~= "table" or type(M.draw) ~= "function" then return end
+    local origDraw = M.draw
+    function M:draw()
+      if not isWideNow(self) then
+        return origDraw(self)
+      end
+      return wideDraw(self)
     end
-    if ctx.isGen2 then
-      return drawGoldOptions(self)
-    end
-    return ctx.drawOptionRows(self.game, self.rows or {}, self.index,
-                              self.scroll or 0, Strings("CANCEL"),
-                              #(self.rows or {}) + 1)
+  end
+
+  local okRby, OptionsMenu = pcall(require, "src.ui.OptionsMenu")
+  if okRby then
+    patchDraw(OptionsMenu, function(self)
+      return ctx.drawOptionRows(self.game, self.rows or {}, self.index,
+                                self.scroll or 0, Strings("CANCEL"),
+                                #(self.rows or {}) + 1)
+    end)
+  end
+
+  -- Gold pushes Gen2OptionsMenu, not the gen1 module.
+  local okGold, GoldOptions = pcall(require, "src.ui.gen2.OptionsMenu")
+  if okGold then
+    patchDraw(GoldOptions, drawGoldOptions)
   end
 end

@@ -5,6 +5,14 @@ return function(ctx)
   local PaletteFX = require("src.render.PaletteFX")
   local W, H = ctx.W, ctx.H
   local colsNow = ctx.colsNow
+  -- Love NX (the shipped Windows/Switch runtime) has no debug library.
+  local function traceback(err)
+    local dbg = debug
+    if type(dbg) == "table" and type(dbg.traceback) == "function" then
+      return dbg.traceback(err)
+    end
+    return tostring(err)
+  end
 
   local origWhole = PaletteFX.whole
   function PaletteFX.whole(colors)
@@ -64,7 +72,7 @@ return function(ctx)
       end
       local ok, err = xpcall(function()
         return draw(self, unpack(args))
-      end, debug.traceback)
+      end, traceback)
       Font.drawBox = realBox
       love.graphics.rectangle = realRect
       Renderer.setUIAnchor = realAnchor
@@ -104,7 +112,7 @@ return function(ctx)
       if (tx or 0) >= 10 then tx = tx + shift end
       return origCursor(tx, ty, hollow)
     end
-    local ok, err = xpcall(draw, debug.traceback)
+    local ok, err = xpcall(draw, traceback)
     Chrome.box, Chrome.print, Chrome.cursor = origBox, origPrint, origCursor
     if not ok then error(err) end
   end
@@ -174,7 +182,7 @@ return function(ctx)
         elseif self.draw then
           self:draw()
         end
-      end, debug.traceback)
+      end, traceback)
       ctx.setForceWide(false)
       love.graphics.pop()
       if not ok then error(err) end

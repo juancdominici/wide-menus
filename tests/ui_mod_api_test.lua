@@ -218,6 +218,82 @@ run.loader.modOptions["wide-menus"] = { rby_party = true }
 T.eq(select(1, party:uiSize()), 304, "a live on restores the wide canvas")
 run.loader.modOptions["wide-menus"] = {}
 
+-- ------- wide party draw (Pokemon Red crash: open party with toggle on)
+
+local Pokemon = require("src.pokemon.Pokemon")
+Font.load(data)
+local speciesId = (data.pokemon.BULBASAUR and "BULBASAUR")
+               or (T.fixtures.ids.species[1])
+local liveMon = Pokemon.new(data, speciesId, 5)
+local liveGame = {
+  data = data,
+  save = { party = { liveMon }, options = {} },
+  stack = { states = {} },
+  partyMenuSavedIndex = 1,
+}
+local liveParty = PartyMenu.new(liveGame, {})
+liveParty.screenId = "Party" .. "Menu"
+liveGame.stack.states[1] = liveParty
+local savedUiSize = Renderer.uiSize
+function Renderer:uiSize()
+  return 304, 144
+end
+T.eq(select(1, liveParty:uiSize()), 304, "live party owns the wide canvas")
+local HudTiles = require("src.render.HudTiles")
+local seenBar
+local realBar = HudTiles.drawHPBar
+function HudTiles.drawHPBar(data, tx, ty, mon, barType, grayFill, segments)
+  seenBar = { tx = tx, segments = segments }
+  return realBar(data, tx, ty, mon, barType, grayFill, segments)
+end
+local okDraw, errDraw = pcall(function() liveParty:draw() end)
+HudTiles.drawHPBar = realBar
+T.check(okDraw, "wide PartyMenu:draw runs (" .. tostring(errDraw) .. ")")
+T.check(seenBar ~= nil, "wide party draws an HP bar")
+T.check(seenBar and seenBar.segments and seenBar.segments > 6,
+  "wide party HP bar uses extra segments (got " .. tostring(seenBar and seenBar.segments) .. ")")
+local okPal, errPal = pcall(function() return liveParty:sgbPalettes(liveGame) end)
+T.check(okPal, "wide PartyMenu:sgbPalettes runs (" .. tostring(errPal) .. ")")
+if okPal then
+  local zones = liveParty:sgbPalettes(liveGame)
+  if type(zones) == "table" and zones[3] then
+    T.check(zones[3].w and zones[3].w > 56,
+      "wide party expands the HP-bar SGB zone")
+  end
+end
+
+-- Love NX has no debug library. wrapDraw uses xpcall; party is wrapped on
+-- push (it is not in FULLSCREEN_MODULES), so this is the Red crash path.
+api.claim(liveParty)
+local savedDebug = debug
+debug = nil
+local okNx, errNx = pcall(function() liveParty:draw() end)
+debug = savedDebug
+T.check(okNx, "wide PartyMenu:draw works without debug (" .. tostring(errNx) .. ")")
+
+local okGoldMod, GoldOptions = pcall(require, "src.ui.gen2.OptionsMenu")
+if okGoldMod and type(GoldOptions) == "table" and type(GoldOptions.new) == "function" then
+  local okNew, gold = pcall(GoldOptions.new, GoldOptions, {
+    data = data, save = { options = {} }, stack = { states = {} },
+  })
+  if okNew and type(gold) == "table" then
+    gold.screenId = "Gen2OptionsMenu"
+    api.claim(gold)
+    debug = nil
+    local okGoldDraw, errGoldDraw = pcall(function()
+      if gold.drawWidescreen then
+        gold:drawWidescreen(640, 288)
+      else
+        gold:draw()
+      end
+    end)
+    debug = savedDebug
+    T.check(okGoldDraw,
+      "Gold OPTIONS draws without debug (" .. tostring(errGoldDraw) .. ")")
+  end
+end
+Renderer.uiSize = savedUiSize
+
 run.release()
 Screens.invalidate()
 T.finish("ui_mod_api")
