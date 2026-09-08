@@ -51,7 +51,7 @@ return function(mod)
     mod.exports[k] = v
   end
 
-  mod.log:info("wide menus 0.3.0 (%dx%d, party centered, %s)",
+  mod.log:info("wide menus 0.3.1 (%dx%d, party centered, %s)",
                ctx.W, ctx.H, ctx.isGen2 and "gen2" or "gen1")
 end
 

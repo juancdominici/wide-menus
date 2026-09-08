@@ -5,6 +5,7 @@ return function(ctx)
   local PaletteFX = require("src.render.PaletteFX")
   local W, H = ctx.W, ctx.H
   local colsNow = ctx.colsNow
+  local unpack = table.unpack or unpack
   -- Love NX (the shipped Windows/Switch runtime) has no debug library.
   local function traceback(err)
     local dbg = debug
@@ -18,6 +19,7 @@ return function(ctx)
   function PaletteFX.whole(colors)
     if ctx.isWideNow() then
       local c = colsNow()
+      if c < 20 then c = 20 end
       return PaletteFX.zone(colors, 0, 0, c - 1,
                             math.floor(H / 8) - 1)
     end
@@ -209,6 +211,72 @@ return function(ctx)
     M._uiModWideDraw = true
     M.draw = wrapped
     return M
+  end
+
+  -- TrimUI Brick (and other GLES handhelds) can hard-crash when LOVE
+  -- releases the 160 UI FBO and allocates 304 while Yellow's overworld
+  -- textures are still resident. Mods load before Renderer:init, so pool
+  -- both sizes at init and swap pointers instead of newCanvas in-game.
+  if not Renderer._uiModCanvasPool then
+    Renderer._uiModCanvasPool = true
+    local pool = {}
+    local origSetUISize = Renderer.setUISize
+    local origInit = Renderer.init
+
+    local function poolKey(w, h)
+      if type(w) ~= "number" or type(h) ~= "number" then return nil end
+      return math.floor(w) .. "x" .. math.floor(h)
+    end
+
+    local function unbind(canvas)
+      local g = love and love.graphics
+      if not (canvas and g and g.getCanvas and g.setCanvas) then return end
+      local ok, current = pcall(g.getCanvas)
+      if ok and current == canvas then pcall(g.setCanvas) end
+    end
+
+    function Renderer:setUISize(w, h)
+      if type(w) ~= "number" or type(h) ~= "number"
+          or w < self.WIDTH or h < self.HEIGHT
+          or w > self.MAX_UI_WIDTH or h > self.MAX_UI_HEIGHT then
+        w, h = self.WIDTH, self.HEIGHT
+      end
+      w, h = math.floor(w), math.floor(h)
+      if w == self.uiWidth and h == self.uiHeight and self.canvas then return end
+
+      unbind(self.canvas)
+      local oldKey = poolKey(self.uiWidth, self.uiHeight)
+      if self.canvas and oldKey then pool[oldKey] = self.canvas end
+
+      local newKey = poolKey(w, h)
+      local reused = newKey and pool[newKey]
+      if reused then
+        self.uiWidth, self.uiHeight = w, h
+        self.canvas = reused
+        return
+      end
+
+      local saved = self.canvas
+      local savedW, savedH = self.uiWidth, self.uiHeight
+      self.canvas = nil
+      local ok = pcall(origSetUISize, self, w, h)
+      if ok and self.canvas then
+        pool[poolKey(self.uiWidth, self.uiHeight)] = self.canvas
+        return
+      end
+      self.uiWidth, self.uiHeight = savedW, savedH
+      self.canvas = saved
+    end
+
+    function Renderer:init(...)
+      origInit(self, ...)
+      local key = poolKey(self.uiWidth, self.uiHeight)
+      if self.canvas and key then pool[key] = self.canvas end
+      pcall(function()
+        self:setUISize(W, H)
+        self:setUISize(self.WIDTH, self.HEIGHT)
+      end)
+    end
   end
 end
 

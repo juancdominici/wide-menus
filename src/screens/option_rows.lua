@@ -7,11 +7,15 @@ return function(ctx)
   local VISIBLE = 4
   local GOLD_VISIBLE = 7
 
+  local function textWidth(text)
+    if type(Font.width) == "function" then return Font.width(text) end
+    return #tostring(text or "") * 8
+  end
+
   local function rowValue(game, row)
-    if type(row.value) == "function" then
-      return tostring(row.value(game) or "")
-    end
-    return ""
+    if type(row.value) ~= "function" then return "" end
+    local ok, text = pcall(row.value, game)
+    return ok and tostring(text or "") or "?"
   end
 
   local function goldRowValue(self, row)
@@ -38,7 +42,11 @@ return function(ctx)
 
   function ctx.drawOptionRows(game, rows, index, scroll, bottomLabel, bottomRow)
     local uiw = ctx.W
-    local cols = COLS
+    if ctx.Renderer and ctx.Renderer.uiSize then
+      uiw = select(1, ctx.Renderer:uiSize()) or uiw
+    end
+    if uiw < ctx.CLASSIC_W then uiw = ctx.CLASSIC_W end
+    local cols = math.floor(uiw / 8)
     love.graphics.setColor(1, 1, 1, 1)
     love.graphics.rectangle("fill", 0, 0, uiw, H)
     for slot = 1, VISIBLE do
@@ -52,8 +60,8 @@ return function(ctx)
       local value = rowValue(game, row)
       Font.draw(label, 16, (ty + 1) * 8)
       if value ~= "" then
-        local vx = uiw - 16 - Font.width(value)
-        local minX = 16 + Font.width(label) + 16
+        local vx = uiw - 16 - textWidth(value)
+        local minX = 16 + textWidth(label) + 16
         if vx < minX then vx = minX end
         Font.draw(value, vx, (ty + 1) * 8)
       end
@@ -91,8 +99,8 @@ return function(ctx)
       Font.draw(label, 16, y)
       local value = goldRowValue(self, row)
       if value ~= "" then
-        local vx = uiw - 16 - Font.width(value)
-        local minX = 16 + Font.width(label) + 16
+        local vx = uiw - 16 - textWidth(value)
+        local minX = 16 + textWidth(label) + 16
         if vx < minX then vx = minX end
         Font.draw(value, vx, y)
       end

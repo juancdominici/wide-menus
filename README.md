@@ -4,7 +4,7 @@ A UI mod for [gen1recomp](https://github.com/bryanthaboi/gen1recomp). It stretch
 **OPTIONS → BATTLE LAYOUT → WIDE**, so labels, values, and list rows have room to breathe. Red/Blue/Yellow and Gold.
 
 Overworld dialogue, naming, the trainer card, Oak's intro, and the START menu stay Game Boy sized.
-**Version 0.3.0** · id `wide-menus` · category UI · per-screen toggles
+**Version 0.3.1** · id `wide-menus` · category UI · per-screen toggles
 
 ## What it changes
 

@@ -294,6 +294,57 @@ if okGoldMod and type(GoldOptions) == "table" and type(GoldOptions.new) == "func
 end
 Renderer.uiSize = savedUiSize
 
+-- TrimUI Brick: START -> OPTION in Yellow reallocates the UI canvas while
+-- overworld textures are still in VRAM. Pool 160 and 304 at init so that
+-- path only swaps pointers.
+local GameVersion = require("src.core.GameVersion")
+local OptionsMenu = require("src.ui.OptionsMenu")
+local SaveData = require("src.core.SaveData")
+local prevVersion = GameVersion.get()
+GameVersion.set("yellow")
+
+local canvases = 0
+local realNewCanvas = love.graphics.newCanvas
+love.graphics.newCanvas = function(...)
+  canvases = canvases + 1
+  return realNewCanvas(...)
+end
+Renderer:init()
+local afterInit = canvases
+Renderer:setUISize(304, 144)
+T.eq(select(1, Renderer:uiSize()), 304, "first in-game OPTIONS uses the wide surface")
+Renderer:setUISize(160, 144)
+T.eq(select(1, Renderer:uiSize()), 160, "closing OPTIONS restores the classic surface")
+Renderer:setUISize(304, 144)
+T.eq(canvases, afterInit,
+  "reopening OPTIONS does not allocate another UI canvas")
+love.graphics.newCanvas = realNewCanvas
+
+local yellowData = run.data
+yellowData.audio = yellowData.audio or {}
+yellowData.audio.pikaCries = yellowData.audio.pikaCries or 1
+local overworld = { isOpaque = true, isOverworld = true, draw = function() end }
+local yellowGame = {
+  data = yellowData,
+  save = SaveData.newGame(),
+  stack = { states = { overworld } },
+}
+local options = OptionsMenu.new(yellowGame)
+options.screenId = "OptionsMenu"
+api.claim(options)
+yellowGame.stack.states[2] = options
+local hasPika
+for _, row in ipairs(options.rows or {}) do
+  if row.id == "pikaVol" then hasPika = true break end
+end
+T.check(hasPika, "Yellow OPTIONS includes PIKACHU VOL")
+local okOpt, errOpt = pcall(function() options:draw() end)
+T.check(okOpt, "Yellow in-game OPTIONS draws (" .. tostring(errOpt) .. ")")
+local okSgb, errSgb = pcall(function() options:sgbPalettes(yellowGame) end)
+T.check(okSgb, "Yellow OPTIONS palettes run (" .. tostring(errSgb) .. ")")
+Renderer:setUISize(160, 144)
+GameVersion.set(prevVersion)
+
 run.release()
 Screens.invalidate()
 T.finish("ui_mod_api")
