@@ -1,7 +1,7 @@
 {
   "id": "wide-menus",
   "name": "Wide Menus",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "api": 2,
   "games": ["gen1", "gen2"],
   "entry": "main.lua",
@@ -13,6 +13,6 @@
   "dependencies": [],
   "optional_dependencies": [],
   "conflicts": [],
-  "description": "Widens OPTIONS/lists/mod screens to 304px on gen1 and gen2. Per-screen toggles in the mod manager; other mods opt in via mod.find(\"wide-menus\").exports.",
+  "description": "Widens OPTIONS/lists/mod screens to 304px on RBY and GSC. Per-screen toggles in the mod manager; other mods opt in via mod.find(\"wide-menus\").exports.",
   "github": "juancdominici/wide-menus"
 }
