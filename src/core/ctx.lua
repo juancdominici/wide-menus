@@ -9,8 +9,13 @@ local COLS = math.floor(W / 8) -- 38
 local CLASSIC_W = Renderer.WIDTH
 -- Gold's Game require is an empty proxy (pairs/next see nothing). That is
 -- also how the headless SDK marks a Gen 2 load without setting GameVersion.
+local versionId = GameVersion.get and GameVersion.get()
 local isGen2 = (GameVersion.generation and GameVersion.generation() == 2)
             or (GameVersion.isGold and GameVersion.isGold())
+            or (GameVersion.isSilver and GameVersion.isSilver())
+            or (GameVersion.isCrystal and GameVersion.isCrystal())
+            or versionId == "gold" or versionId == "silver"
+            or versionId == "crystal"
             or next(Game) == nil
             or false
 
@@ -70,6 +75,12 @@ local SCREEN_KEYS = {
   Gen2OptionsMenu = "gs_options",
   Gen2MartMenu = "gs_mart",
   Gen2PartyMenu = "gs_party",
+  CrystalOptionsMenu = "gs_options",
+  CrystalMartMenu = "gs_mart",
+  CrystalPartyMenu = "gs_party",
+  Gen2CrystalOptionsMenu = "gs_options",
+  Gen2CrystalMartMenu = "gs_mart",
+  Gen2CrystalPartyMenu = "gs_party",
   ManagerState = "manager",
 }
 
@@ -85,22 +96,35 @@ end
 local function optionKey(state)
   local id = type(state) == "string" and state
           or (type(state) == "table" and state.screenId)
-  return SCREEN_KEYS[id] or "others"
+  if SCREEN_KEYS[id] then return SCREEN_KEYS[id] end
+  if type(state) == "table" and state.uiModLayout == "wide" and not id then
+    return nil
+  end
+  return "others"
 end
 
 local function layoutEnabled(state)
   if type(state) ~= "table" then return true end
   if state.keepClassicUi then return false end
-  return optionOn(optionKey(state))
+  local key = optionKey(state)
+  if not key then return true end
+  return optionOn(key)
 end
 
+local function isWideOwner(state)
+  return type(state) == "table"
+     and state.isWideMenuLayout
+     and not state.isClassicCenteredOnWide
+     and layoutEnabled(state)
+end
+
+-- Opaque wide owners keep transparent overlays on the same canvas.
 local function opaqueWideParent(game, self)
   local stack = game and game.stack
   if not stack then return nil end
   for i = #stack.states, 1, -1 do
     local s = stack.states[i]
-    if s and s ~= self and s.isOpaque and s.isWideMenuLayout
-        and layoutEnabled(s) then
+    if s and s ~= self and isWideOwner(s) and (s.isOpaque or s.uiModLayout == "wide") then
       return s
     end
   end
@@ -122,8 +146,11 @@ local function inheritWideUiSize(self)
   if self and classicBattleUnder(self.game) then
     return CLASSIC_W, Renderer.HEIGHT
   end
+  if isWideOwner(self) then
+    return W, H
+  end
   local parent = opaqueWideParent(self and self.game, self)
-  if parent and not parent.isClassicCenteredOnWide then
+  if parent then
     return W, H
   end
   return CLASSIC_W, Renderer.HEIGHT
@@ -132,10 +159,25 @@ end
 local function isWideNow(self)
   if forceWide then return true end
   if self and classicBattleUnder(self.game) then return false end
-  if self and self.isOpaque and not layoutEnabled(self) then return false end
+  if self and (self.keepClassicUi or self.isClassicCenteredOnWide) then
+    return false
+  end
+  if self and (self.isOpaque or self.isWideMenuLayout)
+      and not layoutEnabled(self) then
+    return false
+  end
   -- Gold's stack:draw blit is still the 160 panel; only drawWidescreen
   -- (forceWide) paints 304.
   if isGen2 then return false end
+  if isWideOwner(self) then return true end
+  -- Transparent overlays without an explicit owner must stay on the
+  -- classic grid unless a wide parent is active.
+  if self then
+    if opaqueWideParent(self.game, self) then
+      return select(1, Renderer:uiSize()) > CLASSIC_W
+    end
+    return false
+  end
   return select(1, Renderer:uiSize()) > CLASSIC_W
 end
 

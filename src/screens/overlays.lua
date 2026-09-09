@@ -43,16 +43,30 @@ return function(ctx)
   end
 
   local function onWideParent(self)
+    if self and self.isWideMenuLayout and not self.isClassicCenteredOnWide
+        and ctx.isWideNow(self) then
+      return true
+    end
     local parent = opaqueWideParent(self.game, self)
-    return ctx.isWideNow(self) and parent and not parent.isClassicCenteredOnWide
+    return parent and not parent.isClassicCenteredOnWide
   end
 
+  local function wideCols(self)
+    local n = math.floor(select(1, inheritWideUiSize(self)) / 8)
+    if n < 20 then n = 20 end
+    return n
+  end
+
+  -- Pin for this draw only. Mutating tx permanently made each nested
+  -- window (YES/NO, then START leftovers) walk further right.
   local origChoiceDraw = ChoiceBox.draw
   function ChoiceBox:draw()
+    local origTx = self.tx
     if onWideParent(self) then
-      self.tx = colsNow() - self.tw
+      self.tx = wideCols(self) - self.tw
     end
-    return origChoiceDraw(self)
+    origChoiceDraw(self)
+    self.tx = origTx
   end
 
   -- Grow the dialogue window with the canvas so setUIAnchor, the border,
@@ -60,11 +74,13 @@ return function(ctx)
   -- Font.drawBox; without this the arrow sits at column 18 on a 38-col box.
   local origTextDraw = TextBox.draw
   function TextBox:draw()
-    if not onWideParent(self) or self.boxTw ~= 20 or (self.boxTx or 0) ~= 0 then
+    -- Theme mods may change tw off 20; still grow a left-docked dialogue
+    -- box once a wide parent owns the 304 canvas.
+    if not onWideParent(self) or (self.boxTx or 0) ~= 0 or (self.boxTw or 0) < 18 then
       return origTextDraw(self)
     end
     local tw = self.boxTw
-    self.boxTw = colsNow()
+    self.boxTw = wideCols(self)
     origTextDraw(self)
     self.boxTw = tw
   end
@@ -75,8 +91,7 @@ return function(ctx)
     local self = origMenuNew(game, items, opts)
     -- inheritWideUiSize, not colsNow(): after party/dex pop, Renderer is
     -- still 304 until the next draw, and topright would land at column 27.
-    local limit = math.floor(select(1, inheritWideUiSize(self)) / 8)
-    if limit < 20 then limit = 20 end
+    local limit = wideCols(self)
     local widest = 0
     for _, it in ipairs(items or {}) do
       if it.label then
@@ -94,4 +109,5 @@ return function(ctx)
     end
     return self
   end
+
 end

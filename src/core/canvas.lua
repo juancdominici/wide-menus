@@ -49,7 +49,8 @@ return function(ctx)
   local function withWideCanvas(draw)
     return function(self, ...)
       local args = { ... }
-      if not ctx.isWideNow(self) then
+      if not ctx.isWideNow(self)
+          or (self and (self.keepClassicUi or self.isClassicCenteredOnWide)) then
         return draw(self, unpack(args))
       end
       local realBox = Font.drawBox

@@ -30,12 +30,15 @@ return function(ctx)
   -- Pair Gen 1 ids with the Gen2-prefixed ids Gold actually pushes.
   local ALLOW_WIDE = {
     OptionsMenu = true, Gen2OptionsMenu = true,
+    CrystalOptionsMenu = true, Gen2CrystalOptionsMenu = true,
     ManagerState = true,
     BagMenu = true,
     ShopMenu = true, Gen2MartMenu = true,
+    CrystalMartMenu = true, Gen2CrystalMartMenu = true,
     PokedexMenu = true,
     BindingsMenu = true,
     PartyMenu = true, Gen2PartyMenu = true,
+    CrystalPartyMenu = true, Gen2CrystalPartyMenu = true,
   }
 
   for _, name in ipairs(FULLSCREEN_MODULES) do
