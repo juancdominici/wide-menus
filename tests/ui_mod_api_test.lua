@@ -105,6 +105,8 @@ T.check(type(overlay.uiSize) == "function",
   "overlay on a wide parent gets uiSize")
 local ow = overlay:uiSize()
 T.eq(ow, 304, "overlay on a wide parent stays on the 304 canvas")
+T.check(not overlay.isWideMenuLayout,
+  "transparent overlay does not inherit the opaque wide claim")
 T.check(wideInst.isWideMenuLayout, "wide parent is still marked wide")
 
 -- START reopen: party/dex pop first, then Screens.push(StartMenu). Renderer
@@ -175,6 +177,9 @@ local SCREENS = {
   { "Gen2OptionsMenu", "gs_options" },
   { "Gen2MartMenu", "gs_mart" },
   { "Gen2PartyMenu", "gs_party" },
+  { "CrystalOptionsMenu", "gs_options" },
+  { "CrystalMartMenu", "gs_mart" },
+  { "CrystalPartyMenu", "gs_party" },
   { "ManagerState", "manager" },
   { "MyModScreen", "others" },
 }
@@ -292,6 +297,89 @@ if okGoldMod and type(GoldOptions) == "table" and type(GoldOptions.new) == "func
       "Gold OPTIONS draws without debug (" .. tostring(errGoldDraw) .. ")")
   end
 end
+
+-- Manager OPTIONS on Gold: Renderer stays 160 while drawWidescreen paints
+-- 304. Boxes must still span 38 columns and leave a blank tile after ▶.
+local ManagerState = require("src.mods.ManagerState")
+local mgr = ManagerState.new({
+  data = data, save = { options = {} }, stack = { states = {} },
+  mods = run.loader,
+})
+mgr.screen = "options"
+mgr.cursor = 3
+mgr.scroll = 0
+mgr.screenId = "ManagerState"
+mgr.optionRows = {
+  { label = "GSC OPTIONS", value = function() return "ON" end },
+  { label = "GSC MART", value = function() return "ON" end },
+  { label = "GSC PARTY", value = function() return "ON" end },
+}
+api.claim(mgr)
+local Theme = require("src.ui.Theme")
+-- Gold keeps Renderer at 160 and paints 304 via drawWidescreen. Gen 1
+-- sizes the UI canvas from uiSize(), so the stub must match the canvas.
+if mgr.drawWidescreen then
+  function Renderer:uiSize()
+    return 160, 144
+  end
+else
+  function Renderer:uiSize()
+    return 304, 144
+  end
+end
+local optBoxes, optLabels, optCursor = {}, {}, {}
+local realOptBox, realOptDraw, realOptCode = Font.drawBox, Font.draw, Font.drawCode
+function Font.drawBox(tx, ty, tw, th)
+  optBoxes[#optBoxes + 1] = { tx = tx, tw = tw }
+  return realOptBox(tx, ty, tw, th)
+end
+function Font.draw(text, x, y)
+  optLabels[#optLabels + 1] = { text = tostring(text), x = x, y = y }
+  return realOptDraw(text, x, y)
+end
+function Font.drawCode(code, x, y)
+  if code == Theme.cursor then
+    optCursor[#optCursor + 1] = { x = x, y = y }
+  end
+  return realOptCode(code, x, y)
+end
+local okMgr, errMgr = pcall(function()
+  if mgr.drawWidescreen then
+    mgr:drawWidescreen(640, 288)
+  else
+    mgr:draw()
+  end
+end)
+Font.drawBox = realOptBox
+Font.draw = realOptDraw
+Font.drawCode = realOptCode
+T.check(okMgr, "manager OPTIONS draws (" .. tostring(errMgr) .. ")")
+local wideBox
+for _, box in ipairs(optBoxes) do
+  if box.tw and box.tw >= 38 then wideBox = box break end
+end
+T.check(wideBox ~= nil, "manager OPTIONS boxes span the 304 canvas")
+local party
+for _, row in ipairs(optLabels) do
+  if row.text == "GSC PARTY" then party = row break end
+end
+T.check(party and party.x == 24,
+  "manager OPTIONS label sits after the cursor tile")
+T.check(optCursor[1] and optCursor[1].x == 16,
+  "manager OPTIONS cursor sits in the left gutter")
+T.check(optCursor[1] and optCursor[1].y == 40,
+  "manager OPTIONS cursor sits on the selected row")
+T.check(party and optCursor[1] and party.y == optCursor[1].y,
+  "manager OPTIONS cursor and label share the first line of the box")
+local partyOn
+for _, row in ipairs(optLabels) do
+  if row.text == "ON" and party and row.y == party.y then
+    partyOn = row
+    break
+  end
+end
+T.check(partyOn and partyOn.x > (party.x + 64),
+  "manager OPTIONS value sits on the same line, right of the label")
 Renderer.uiSize = savedUiSize
 
 -- TrimUI Brick: START -> OPTION in Yellow reallocates the UI canvas while
@@ -342,6 +430,24 @@ local okOpt, errOpt = pcall(function() options:draw() end)
 T.check(okOpt, "Yellow in-game OPTIONS draws (" .. tostring(errOpt) .. ")")
 local okSgb, errSgb = pcall(function() options:sgbPalettes(yellowGame) end)
 T.check(okSgb, "Yellow OPTIONS palettes run (" .. tostring(errSgb) .. ")")
+
+-- Down from the 12th visible row must scroll, not jump to CANCEL.
+options.rows = {}
+for i = 1, 20 do
+  options.rows[i] = {
+    id = "extra" .. i, label = "ROW " .. i,
+    value = function() return "ON" end,
+    step = function() return false end,
+  }
+end
+options.index = 12
+options.scroll = 0
+yellowGame.input = {
+  wasPressed = function(_, btn) return btn == "down" end,
+}
+options:update(0)
+T.eq(options.index, 13, "down from row 12 selects row 13, not CANCEL")
+T.eq(options.scroll, 1, "down from row 12 scrolls the compact window")
 Renderer:setUISize(160, 144)
 GameVersion.set(prevVersion)
 
