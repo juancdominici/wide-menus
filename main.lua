@@ -29,6 +29,7 @@ return function(mod)
     "src/screens/overlays.lua",
     "src/screens/option_rows.lua",
     "src/screens/list_menu.lua",
+    "src/screens/shop.lua",
     "src/screens/mart.lua",
     "src/manager/manager.lua",
     "src/manager/manager_pages.lua",

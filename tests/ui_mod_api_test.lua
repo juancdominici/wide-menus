@@ -431,6 +431,134 @@ T.check(okOpt, "Yellow in-game OPTIONS draws (" .. tostring(errOpt) .. ")")
 local okSgb, errSgb = pcall(function() options:sgbPalettes(yellowGame) end)
 T.check(okSgb, "Yellow OPTIONS palettes run (" .. tostring(errSgb) .. ")")
 
+-- RBY bag: vanilla itemBox is transparent over the map; wide must own the
+-- surface like party so Game:draw does not keep the overworld as visibleBase.
+local bagGame = {
+  data = yellowData,
+  save = SaveData.newGame(),
+  stack = setmetatable({}, { __index = StateStack }),
+  bagListScrollOffset = 0,
+  bagSavedMenuItem = 0,
+}
+bagGame.stack:init()
+bagGame.stack:push(overworld)
+local bag = Screens.push(bagGame, "BagMenu", {})
+T.eq(bag.screenId, "BagMenu", "bag push stamps BagMenu")
+T.check(bag.itemBox, "bag is still an itemBox list")
+T.check(bag.isWideMenuLayout, "bag is claimed wide")
+T.eq(bag.uiModLayout, "wide", "bag gets uiModLayout wide")
+T.eq(select(1, bag:uiSize()), 304, "bag owns the wide canvas")
+T.check(bag.isOpaque, "wide bag is opaque so the map does not show through")
+local bagFills = {}
+local realBagRect = love.graphics.rectangle
+function love.graphics.rectangle(mode, x, y, w, h, ...)
+  if mode == "fill" then bagFills[#bagFills + 1] = { w = w, h = h } end
+  return realBagRect(mode, x, y, w, h, ...)
+end
+local okBag, errBag = pcall(function() bag:draw() end)
+love.graphics.rectangle = realBagRect
+T.check(okBag, "wide bag draws (" .. tostring(errBag) .. ")")
+T.check(bagFills[1] and bagFills[1].w == 304 and bagFills[1].h == 144,
+  "wide bag fills the whole 304x144 surface")
+run.loader.modOptions["wide-menus"] = { rby_bag = false }
+T.eq(select(1, bag:uiSize()), 160, "bag toggle off restores classic canvas")
+T.check(not bag.isOpaque, "classic bag is transparent over the map again")
+run.loader.modOptions["wide-menus"] = {}
+bag:uiSize()
+T.check(bag.isOpaque, "bag toggle on restores opaque ownership")
+
+-- RBY mart: root Menu + buy/sell itemBox lists must go full-bleed, and the
+-- money amount must sit inside MONEY_BOX (classic right-align tile).
+local shopStock = { "POKE_BALL", "POTION" }
+if not yellowData.items or not yellowData.items.POKE_BALL then
+  shopStock = {}
+  for id in pairs(yellowData.items or {}) do
+    shopStock[#shopStock + 1] = id
+    if #shopStock >= 2 then break end
+  end
+end
+local shopGame = {
+  data = yellowData,
+  save = SaveData.newGame(),
+  stack = setmetatable({}, { __index = StateStack }),
+}
+shopGame.save.money = 935
+shopGame.stack:init()
+shopGame.stack:push(overworld)
+local shop = Screens.push(shopGame, "ShopMenu", shopStock, function() end)
+T.eq(shop.screenId, "ShopMenu", "shop push stamps ShopMenu")
+T.check(shop.isWideMenuLayout, "shop is claimed wide")
+T.eq(select(1, shop:uiSize()), 304, "shop owns the wide canvas")
+T.check(shop.isOpaque, "wide shop is opaque so the map does not show through")
+local moneyBoxes, moneyLabels = {}, {}
+local realShopBox, realShopDraw = Font.drawBox, Font.draw
+function Font.drawBox(tx, ty, tw, th)
+  if ty == 0 and tw == 9 then
+    moneyBoxes[#moneyBoxes + 1] = { tx = tx, tw = tw }
+  end
+  return realShopBox(tx, ty, tw, th)
+end
+function Font.draw(text, x, y)
+  local s = tostring(text)
+  if s:find("¥") or s == "MONEY" then
+    moneyLabels[#moneyLabels + 1] = { text = s, x = x, y = y }
+  end
+  return realShopDraw(text, x, y)
+end
+local okShop, errShop = pcall(function() shop:draw() end)
+Font.drawBox = realShopBox
+Font.draw = realShopDraw
+T.check(okShop, "wide shop draws (" .. tostring(errShop) .. ")")
+T.check(moneyBoxes[1] and moneyBoxes[1].tx == 29,
+  "wide shop money box sits at the right edge")
+local yen
+for _, row in ipairs(moneyLabels) do
+  if row.text:find("¥") then yen = row break end
+end
+T.check(yen ~= nil, "wide shop draws a yen amount")
+if yen and moneyBoxes[1] then
+  local boxLeft = moneyBoxes[1].tx * 8
+  local boxRight = (moneyBoxes[1].tx + moneyBoxes[1].tw) * 8
+  T.check(yen.x >= boxLeft and yen.x + Font.width(yen.text) <= boxRight,
+    "wide shop yen sits inside the money box")
+end
+
+-- Buy list is pushed without a screenId; claim path must still promote it.
+shopGame.input = {
+  wasPressed = function(_, btn) return btn == "a" end,
+}
+shop.index = 1
+shop:update(0)
+local buy = shopGame.stack:top()
+T.check(buy and buy.itemBox and buy.dialogue, "BUY opens a mart item list")
+T.eq(buy.screenId, "ShopMenu", "mart buy list inherits ShopMenu id")
+T.check(buy.isOpaque, "wide mart buy list is opaque")
+T.eq(select(1, buy:uiSize()), 304, "mart buy list owns the wide canvas")
+local buyBoxes, buyYen = {}, nil
+function Font.drawBox(tx, ty, tw, th)
+  if ty == 0 and tw == 9 then
+    buyBoxes[#buyBoxes + 1] = { tx = tx, tw = tw }
+  end
+  return realShopBox(tx, ty, tw, th)
+end
+function Font.draw(text, x, y)
+  local s = tostring(text)
+  if s:find("¥") and y == 8 then buyYen = { text = s, x = x } end
+  return realShopDraw(text, x, y)
+end
+local okBuy, errBuy = pcall(function() buy:draw() end)
+Font.drawBox = realShopBox
+Font.draw = realShopDraw
+T.check(okBuy, "wide mart buy draws (" .. tostring(errBuy) .. ")")
+T.check(buyBoxes[1] and buyBoxes[1].tx == 29, "wide buy money box is right-pinned")
+T.check(buyYen ~= nil, "wide buy draws the money amount")
+if buyYen and buyBoxes[1] then
+  local boxLeft = buyBoxes[1].tx * 8
+  local boxRight = (buyBoxes[1].tx + buyBoxes[1].tw) * 8
+  T.check(buyYen.x >= boxLeft and buyYen.x + Font.width(buyYen.text) <= boxRight,
+    "wide buy yen sits inside the money box")
+end
+
 -- Down from the 12th visible row must scroll, not jump to CANCEL.
 options.rows = {}
 for i = 1, 20 do

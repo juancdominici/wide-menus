@@ -35,8 +35,61 @@ return function(ctx)
     target.uiSize = function()
       return ctx.CLASSIC_W, ctx.Renderer.HEIGHT
     end
+    -- Vanilla bag/shop item boxes float over the map.
+    if target.itemBox then
+      target.isOpaque = false
+      target.sgbPalettes = false
+    end
+    if target._uiModOpaqueUiSize or target._uiModItemBoxUiSize then
+      target._uiModOpaqueUiSize = nil
+      target._uiModItemBoxUiSize = nil
+      if target.isOpaque ~= true then
+        target.isOpaque = false
+      end
+    end
     return target
   end
+
+  -- Bag/shop lists are itemBox (non-opaque) in the engine; the RBY mart
+  -- root is a Menu with no isOpaque. When wide they must own the surface
+  -- like party so the map does not show through.
+  function ctx.promoteOpaque(target)
+    if type(target) ~= "table" then return target end
+    if not target.itemBox and target.isOpaque == true then return target end
+    -- claimWide may overwrite uiSize on a second applyLayout; reinstall.
+    if target._uiModOpaqueUiSize then
+      target.uiSize = target._uiModOpaqueUiSize
+      target:uiSize()
+      return target
+    end
+    local baseUiSize = target.uiSize
+    local wasOpaque = target.isOpaque
+    local wrapped = function(self)
+      local wide = self.isWideMenuLayout and not self.isClassicCenteredOnWide
+        and not self.keepClassicUi and ctx.layoutEnabled(self)
+      if self.itemBox then
+        self.isOpaque = wide and true or false
+        if wide then
+          rawset(self, "sgbPalettes", nil)
+        else
+          self.sgbPalettes = false
+        end
+      elseif wasOpaque ~= true then
+        self.isOpaque = wide and true or false
+      end
+      if type(baseUiSize) == "function" then
+        return baseUiSize(self)
+      end
+      return ctx.menuUiSize(self)
+    end
+    target._uiModOpaqueUiSize = wrapped
+    target.uiSize = wrapped
+    target:uiSize()
+    return target
+  end
+
+  -- Back-compat name used by earlier bag fix / tests.
+  ctx.promoteItemBox = ctx.promoteOpaque
 
   function ctx.resolveLayout(id, inst)
     if type(inst) == "table" then
@@ -59,6 +112,7 @@ return function(ctx)
       target.uiModLayout = "wide"
       ctx.claimWide(target)
       ctx.wrapDraw(target)
+      ctx.promoteOpaque(target)
     end
     return target
   end
