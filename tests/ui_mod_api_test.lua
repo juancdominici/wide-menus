@@ -559,6 +559,87 @@ if buyYen and buyBoxes[1] then
     "wide buy yen sits inside the money box")
 end
 
+-- RBY Pokédex: claimed wide but vanilla draws at col 14 / x=128. Right
+-- chrome (SEEN/OWN, divider, DATA…) must pin to cols - 20.
+local dexSave = SaveData.newGame()
+local speciesId = (yellowData.pokemon.BULBASAUR and "BULBASAUR")
+               or (yellowData.pokemon.CHARMANDER and "CHARMANDER")
+               or (T.fixtures.ids.species[1])
+dexSave.pokedex.seen[speciesId] = true
+dexSave.pokedex.owned[speciesId] = true
+local dexGame = {
+  data = yellowData,
+  save = dexSave,
+  stack = setmetatable({}, { __index = StateStack }),
+}
+dexGame.stack:init()
+dexGame.stack:push(overworld)
+local dex = Screens.push(dexGame, "Pokedex" .. "Menu")
+T.eq(dex.screenId, "Pokedex" .. "Menu", "dex push stamps PokedexMenu")
+T.check(dex.isWideMenuLayout, "dex is claimed wide")
+T.eq(select(1, dex:uiSize()), 304, "dex owns the wide canvas")
+local dexFills, dexLabels = {}, {}
+local realDexRect, realDexDraw = love.graphics.rectangle, Font.draw
+function love.graphics.rectangle(mode, x, y, w, h, ...)
+  if mode == "fill" then dexFills[#dexFills + 1] = { w = w, h = h } end
+  return realDexRect(mode, x, y, w, h, ...)
+end
+function Font.draw(text, x, y)
+  local s = tostring(text)
+  if s == "SEEN" or s == "OWN" or s == "CONTENTS" or s == "DATA" then
+    dexLabels[#dexLabels + 1] = { text = s, x = x, y = y }
+  end
+  return realDexDraw(text, x, y)
+end
+local okDex, errDex = pcall(function() dex:draw() end)
+love.graphics.rectangle = realDexRect
+Font.draw = realDexDraw
+T.check(okDex, "wide dex draws (" .. tostring(errDex) .. ")")
+T.check(dexFills[1] and dexFills[1].w == 304 and dexFills[1].h == 144,
+  "wide dex fills the whole 304x144 surface")
+local seenLabel, dataLabel, contentsLabel
+for _, row in ipairs(dexLabels) do
+  if row.text == "SEEN" then seenLabel = row end
+  if row.text == "DATA" then dataLabel = row end
+  if row.text == "CONTENTS" then contentsLabel = row end
+end
+T.check(contentsLabel and contentsLabel.x == 8,
+  "wide dex keeps CONTENTS on the left")
+T.check(seenLabel and seenLabel.x == 264,
+  "wide dex pins SEEN to the right column")
+T.check(dataLabel and dataLabel.x == 264,
+  "wide dex pins DATA to the right column")
+
+local ruleText, ruleX
+local realDraw2 = Font.draw
+function Font.draw(text, x, y)
+  local s = tostring(text)
+  if s:find("─") then ruleText, ruleX = s, x end
+  return realDraw2(text, x, y)
+end
+dex:draw()
+Font.draw = realDraw2
+T.check(ruleText ~= nil, "wide dex draws the SEEN/OWN rule")
+T.eq(ruleX, 256, "wide dex rule starts just after the divider")
+T.eq(ruleX + Font.width(ruleText), 304,
+  "wide dex rule reaches the right edge")
+
+-- Side menu must not snap back to classic tx=14 after Menu.new.
+local ownedRow = 1
+for i, item in ipairs(dex.items or {}) do
+  if item.value == speciesId then ownedRow = i break end
+end
+dex.index = ownedRow
+dex:syncScroll()
+dexGame.input = {
+  wasPressed = function(_, btn) return btn == "a" end,
+}
+dex:update(0)
+local side = dexGame.stack:top()
+T.check(side and side ~= dex, "dex A opens the side menu")
+T.eq(side.tx, 31, "dex side menu pins to the wide right edge")
+T.eq(side.tw, 6, "dex side menu keeps classic width")
+
 -- Down from the 12th visible row must scroll, not jump to CANCEL.
 options.rows = {}
 for i = 1, 20 do

@@ -26,6 +26,7 @@ return function(mod)
     "src/core/api.lua",
     "src/core/claim.lua",
     "src/screens/party.lua",
+    "src/screens/pokedex.lua",
     "src/screens/overlays.lua",
     "src/screens/option_rows.lua",
     "src/screens/list_menu.lua",
