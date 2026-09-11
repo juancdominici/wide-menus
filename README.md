@@ -12,7 +12,8 @@ These screens fill the wide canvas (each one is a toggle in the mod's OPTIONS, a
 
 - OPTIONS (Red/Blue/Yellow and Gold/Silver/Crystal; separate toggles)
 - Mod Manager (F10)
-- Bag, shop, Pokédex, and button bindings (Red/Blue/Yellow)
+- Bag, shop and button bindings (Red/Blue/Yellow)
+- Pokédex (Red/Blue/Yellow and Gold/Silver/Crystal)
 - Party list (Red/Blue/Yellow and Gold/Silver/Crystal; names on the left, HP/level on the right)
 - Gold mart BUY (SELL stays classic-centered on the pack art)
 - Full-screen menus registered by other mods (opaque screens)
@@ -48,7 +49,7 @@ These keep the original 160×144 layout:
 - Pokédex entries
 - Town map, diploma, credits, Hall of Fame
 - PC boxes, move tutor, Fly list, slot machine
-- Gold pack, Pokédex, Pokégear, save, clock, and intro
+- Gold pack, Pokégear, save, clock, and intro
 
 ## Install
 
