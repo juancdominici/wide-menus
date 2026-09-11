@@ -1,5 +1,5 @@
--- Compact OPTIONS list, matching Gen1BetterMenus: one outer frame, 12
--- one-line rows, label left / value right, and heading rows between groups.
+-- Compact OPTIONS list: one outer frame, 12 one-line rows, label left /
+-- value right, and heading rows between groups.
 
 return function(ctx)
   local Font = ctx.Font
@@ -214,7 +214,7 @@ return function(ctx)
     end
   end
 
-  -- Gen1BetterMenus sets VISIBLE=12 and replaces OptionRows.draw. Native
+  -- Wide mode sets VISIBLE=12 and replaces OptionRows.draw. Native
   -- OptionsMenu.update then scrolls the 12-row window. DIY up/down skipped
   -- that and jumped from the last visible line to CANCEL.
   local origClamp = OptionRows.clampScroll

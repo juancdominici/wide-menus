@@ -18,7 +18,7 @@ These screens fill the wide canvas (each one is a toggle in the mod's OPTIONS, a
 - Gold mart BUY (SELL stays classic-centered on the pack art)
 - Full-screen menus registered by other mods (opaque screens)
 
-On a wide OPTIONS screen the layout follows Gen1BetterMenus: one outer frame, 12 compact rows, the label on the left and the value on the right, with group headings (TEXT / BATTLE / AUDIO / …). The cursor stays in the gutter so it does not sit on the first letter. List menus spread the item name and the right-hand column (price, quantity, and so on) across the extra width. Money boxes and footers grow with the canvas.
+On a wide OPTIONS screen the layout uses one outer frame, 12 compact rows, the label on the left and the value on the right, with group headings (TEXT / BATTLE / AUDIO / …). The cursor stays in the gutter so it does not sit on the first letter. List menus spread the item name and the right-hand column (price, quantity, and so on) across the extra width. Money boxes and footers grow with the canvas.
 
 YES / NO and quantity prompts stay classic unless they open on top of a wide list — then they pin to the wide parent so they do not snap the screen back to 160. The same applies to transparent overlays from other mods (Move Relearn, forget-move lists): the canvas stays 304 and their bottom message box grows with it.
 
