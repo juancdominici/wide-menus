@@ -29,6 +29,12 @@ YES / NO and quantity prompts stay classic unless they open on top of a wide lis
 
 ![Mod Manager](screenshots/mod-manager.png)
 
+![Bag](screenshots/bag.png)
+
+![Pokédex](screenshots/pokedex.png)
+
+![Gold Pokédex](screenshots/pokedex-gold.png)
+
 ## What stays classic
 
 These keep the original 160×144 layout:
