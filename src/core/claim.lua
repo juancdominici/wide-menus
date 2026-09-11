@@ -30,12 +30,15 @@ return function(ctx)
   -- Pair Gen 1 ids with the Gen2-prefixed ids Gold actually pushes.
   local ALLOW_WIDE = {
     OptionsMenu = true, Gen2OptionsMenu = true,
+    CrystalOptionsMenu = true, Gen2CrystalOptionsMenu = true,
     ManagerState = true,
     BagMenu = true,
     ShopMenu = true, Gen2MartMenu = true,
+    CrystalMartMenu = true, Gen2CrystalMartMenu = true,
     PokedexMenu = true,
     BindingsMenu = true,
     PartyMenu = true, Gen2PartyMenu = true,
+    CrystalPartyMenu = true, Gen2CrystalPartyMenu = true,
   }
 
   for _, name in ipairs(FULLSCREEN_MODULES) do
@@ -49,9 +52,12 @@ return function(ctx)
   local function autoLayout(id, inst, factory)
     local layout = ctx.resolveLayout(id, inst)
     if layout then return layout end
-    if not inst or not inst.isOpaque then return nil end
+    if not inst then return nil end
     if DENY_MOD_WIDE[id] then return nil end
-    if (factory and factory.__modOwned) or ALLOW_WIDE[id] then return "wide" end
+    local allowed = (factory and factory.__modOwned) or ALLOW_WIDE[id]
+    if not allowed then return nil end
+    -- Bag/shop item lists are transparent in vanilla; still claim wide.
+    if inst.isOpaque or ALLOW_WIDE[id] then return "wide" end
     return nil
   end
 
@@ -88,14 +94,35 @@ return function(ctx)
   local inheritWideUiSize = ctx.inheritWideUiSize
   local opaqueWideParent = ctx.opaqueWideParent
 
+  local function isMartList(state)
+    -- ShopMenu buy/sell push a bare ListMenu (no screenId).
+    return state.itemBox and state.dialogue and state.money
+  end
+
   local origStackPush = StateStack.push
   function StateStack:push(state, ...)
     origStackPush(self, state, ...)
     if type(state) ~= "table" then return end
+    local id = state.screenId
+    if not id and isMartList(state) then
+      state.screenId = "ShopMenu"
+      id = "ShopMenu"
+    end
     -- Transparent overlays (MoveRelearn, TextBox, forget list) must keep
     -- the 304 surface when a wide menu is underneath; otherwise Game:draw
     -- snaps to 160 and the party letterboxes again.
+    -- Bag/shop itemBox lists are also non-opaque until applyLayout promotes
+    -- them; claim those before the overlay early-return.
     if not state.isOpaque then
+      local layout = ctx.resolveLayout(id, state)
+      if not layout and id and ALLOW_WIDE[id] and not DENY_MOD_WIDE[id]
+          and not KEEP_CLASSIC[id] then
+        layout = "wide"
+      end
+      if layout == "wide" or layout == "centered" then
+        ctx.applyLayout(state, layout)
+        return
+      end
       if state.keepClassicUi then return end
       if not state.uiSize then
         state.uiSize = inheritWideUiSize
@@ -107,7 +134,6 @@ return function(ctx)
       end
       return
     end
-    local id = state.screenId
     local layout = ctx.resolveLayout(id, state)
     if not layout then
       if state.isWideMenuLayout then return end

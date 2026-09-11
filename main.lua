@@ -26,9 +26,11 @@ return function(mod)
     "src/core/api.lua",
     "src/core/claim.lua",
     "src/screens/party.lua",
+    "src/screens/pokedex.lua",
     "src/screens/overlays.lua",
     "src/screens/option_rows.lua",
     "src/screens/list_menu.lua",
+    "src/screens/shop.lua",
     "src/screens/mart.lua",
     "src/manager/manager.lua",
     "src/manager/manager_pages.lua",
@@ -51,7 +53,7 @@ return function(mod)
     mod.exports[k] = v
   end
 
-  mod.log:info("wide menus 0.3.0 (%dx%d, party centered, %s)",
-               ctx.W, ctx.H, ctx.isGen2 and "gen2" or "gen1")
+  mod.log:info("wide menus 0.4.0 (%dx%d, party centered, %s)",
+               ctx.W, ctx.H, ctx.isGen2 and "gsc" or "rby")
 end
 

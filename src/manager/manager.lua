@@ -65,10 +65,8 @@ return function(ctx)
     end
     if self.screen == "options" then
       ctx.drawOptionRows(self.game, self.optionRows or {}, self.cursor,
-                         self.scroll or 0)
-      love.graphics.setColor(0, 0, 0, 1)
-      Font.draw(self.notice or Strings("B:DONE (NO RESTART)"), 8, 136)
-      love.graphics.setColor(1, 1, 1, 1)
+                         self.scroll or 0,
+                         self.notice or Strings("B:DONE (NO RESTART)"))
       if self.overlay then self:drawOverlay() end
       return
     end

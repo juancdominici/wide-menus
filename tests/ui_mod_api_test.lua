@@ -105,6 +105,8 @@ T.check(type(overlay.uiSize) == "function",
   "overlay on a wide parent gets uiSize")
 local ow = overlay:uiSize()
 T.eq(ow, 304, "overlay on a wide parent stays on the 304 canvas")
+T.check(not overlay.isWideMenuLayout,
+  "transparent overlay does not inherit the opaque wide claim")
 T.check(wideInst.isWideMenuLayout, "wide parent is still marked wide")
 
 -- START reopen: party/dex pop first, then Screens.push(StartMenu). Renderer
@@ -175,6 +177,9 @@ local SCREENS = {
   { "Gen2OptionsMenu", "gs_options" },
   { "Gen2MartMenu", "gs_mart" },
   { "Gen2PartyMenu", "gs_party" },
+  { "CrystalOptionsMenu", "gs_options" },
+  { "CrystalMartMenu", "gs_mart" },
+  { "CrystalPartyMenu", "gs_party" },
   { "ManagerState", "manager" },
   { "MyModScreen", "others" },
 }
@@ -292,7 +297,368 @@ if okGoldMod and type(GoldOptions) == "table" and type(GoldOptions.new) == "func
       "Gold OPTIONS draws without debug (" .. tostring(errGoldDraw) .. ")")
   end
 end
+
+-- Manager OPTIONS on Gold: Renderer stays 160 while drawWidescreen paints
+-- 304. Boxes must still span 38 columns and leave a blank tile after ▶.
+local ManagerState = require("src.mods.ManagerState")
+local mgr = ManagerState.new({
+  data = data, save = { options = {} }, stack = { states = {} },
+  mods = run.loader,
+})
+mgr.screen = "options"
+mgr.cursor = 3
+mgr.scroll = 0
+mgr.screenId = "ManagerState"
+mgr.optionRows = {
+  { label = "GSC OPTIONS", value = function() return "ON" end },
+  { label = "GSC MART", value = function() return "ON" end },
+  { label = "GSC PARTY", value = function() return "ON" end },
+}
+api.claim(mgr)
+local Theme = require("src.ui.Theme")
+-- Gold keeps Renderer at 160 and paints 304 via drawWidescreen. Gen 1
+-- sizes the UI canvas from uiSize(), so the stub must match the canvas.
+if mgr.drawWidescreen then
+  function Renderer:uiSize()
+    return 160, 144
+  end
+else
+  function Renderer:uiSize()
+    return 304, 144
+  end
+end
+local optBoxes, optLabels, optCursor = {}, {}, {}
+local realOptBox, realOptDraw, realOptCode = Font.drawBox, Font.draw, Font.drawCode
+function Font.drawBox(tx, ty, tw, th)
+  optBoxes[#optBoxes + 1] = { tx = tx, tw = tw }
+  return realOptBox(tx, ty, tw, th)
+end
+function Font.draw(text, x, y)
+  optLabels[#optLabels + 1] = { text = tostring(text), x = x, y = y }
+  return realOptDraw(text, x, y)
+end
+function Font.drawCode(code, x, y)
+  if code == Theme.cursor then
+    optCursor[#optCursor + 1] = { x = x, y = y }
+  end
+  return realOptCode(code, x, y)
+end
+local okMgr, errMgr = pcall(function()
+  if mgr.drawWidescreen then
+    mgr:drawWidescreen(640, 288)
+  else
+    mgr:draw()
+  end
+end)
+Font.drawBox = realOptBox
+Font.draw = realOptDraw
+Font.drawCode = realOptCode
+T.check(okMgr, "manager OPTIONS draws (" .. tostring(errMgr) .. ")")
+local wideBox
+for _, box in ipairs(optBoxes) do
+  if box.tw and box.tw >= 38 then wideBox = box break end
+end
+T.check(wideBox ~= nil, "manager OPTIONS boxes span the 304 canvas")
+local party
+for _, row in ipairs(optLabels) do
+  if row.text == "GSC PARTY" then party = row break end
+end
+T.check(party and party.x == 24,
+  "manager OPTIONS label sits after the cursor tile")
+T.check(optCursor[1] and optCursor[1].x == 16,
+  "manager OPTIONS cursor sits in the left gutter")
+T.check(optCursor[1] and optCursor[1].y == 40,
+  "manager OPTIONS cursor sits on the selected row")
+T.check(party and optCursor[1] and party.y == optCursor[1].y,
+  "manager OPTIONS cursor and label share the first line of the box")
+local partyOn
+for _, row in ipairs(optLabels) do
+  if row.text == "ON" and party and row.y == party.y then
+    partyOn = row
+    break
+  end
+end
+T.check(partyOn and partyOn.x > (party.x + 64),
+  "manager OPTIONS value sits on the same line, right of the label")
 Renderer.uiSize = savedUiSize
+
+-- TrimUI Brick: START -> OPTION in Yellow reallocates the UI canvas while
+-- overworld textures are still in VRAM. Pool 160 and 304 at init so that
+-- path only swaps pointers.
+local GameVersion = require("src.core.GameVersion")
+local OptionsMenu = require("src.ui.OptionsMenu")
+local SaveData = require("src.core.SaveData")
+local prevVersion = GameVersion.get()
+GameVersion.set("yellow")
+
+local canvases = 0
+local realNewCanvas = love.graphics.newCanvas
+love.graphics.newCanvas = function(...)
+  canvases = canvases + 1
+  return realNewCanvas(...)
+end
+Renderer:init()
+local afterInit = canvases
+Renderer:setUISize(304, 144)
+T.eq(select(1, Renderer:uiSize()), 304, "first in-game OPTIONS uses the wide surface")
+Renderer:setUISize(160, 144)
+T.eq(select(1, Renderer:uiSize()), 160, "closing OPTIONS restores the classic surface")
+Renderer:setUISize(304, 144)
+T.eq(canvases, afterInit,
+  "reopening OPTIONS does not allocate another UI canvas")
+love.graphics.newCanvas = realNewCanvas
+
+local yellowData = run.data
+yellowData.audio = yellowData.audio or {}
+yellowData.audio.pikaCries = yellowData.audio.pikaCries or 1
+local overworld = { isOpaque = true, isOverworld = true, draw = function() end }
+local yellowGame = {
+  data = yellowData,
+  save = SaveData.newGame(),
+  stack = { states = { overworld } },
+}
+local options = OptionsMenu.new(yellowGame)
+options.screenId = "OptionsMenu"
+api.claim(options)
+yellowGame.stack.states[2] = options
+local hasPika
+for _, row in ipairs(options.rows or {}) do
+  if row.id == "pikaVol" then hasPika = true break end
+end
+T.check(hasPika, "Yellow OPTIONS includes PIKACHU VOL")
+local okOpt, errOpt = pcall(function() options:draw() end)
+T.check(okOpt, "Yellow in-game OPTIONS draws (" .. tostring(errOpt) .. ")")
+local okSgb, errSgb = pcall(function() options:sgbPalettes(yellowGame) end)
+T.check(okSgb, "Yellow OPTIONS palettes run (" .. tostring(errSgb) .. ")")
+
+-- RBY bag: vanilla itemBox is transparent over the map; wide must own the
+-- surface like party so Game:draw does not keep the overworld as visibleBase.
+local bagGame = {
+  data = yellowData,
+  save = SaveData.newGame(),
+  stack = setmetatable({}, { __index = StateStack }),
+  bagListScrollOffset = 0,
+  bagSavedMenuItem = 0,
+}
+bagGame.stack:init()
+bagGame.stack:push(overworld)
+local bag = Screens.push(bagGame, "BagMenu", {})
+T.eq(bag.screenId, "BagMenu", "bag push stamps BagMenu")
+T.check(bag.itemBox, "bag is still an itemBox list")
+T.check(bag.isWideMenuLayout, "bag is claimed wide")
+T.eq(bag.uiModLayout, "wide", "bag gets uiModLayout wide")
+T.eq(select(1, bag:uiSize()), 304, "bag owns the wide canvas")
+T.check(bag.isOpaque, "wide bag is opaque so the map does not show through")
+local bagFills = {}
+local realBagRect = love.graphics.rectangle
+function love.graphics.rectangle(mode, x, y, w, h, ...)
+  if mode == "fill" then bagFills[#bagFills + 1] = { w = w, h = h } end
+  return realBagRect(mode, x, y, w, h, ...)
+end
+local okBag, errBag = pcall(function() bag:draw() end)
+love.graphics.rectangle = realBagRect
+T.check(okBag, "wide bag draws (" .. tostring(errBag) .. ")")
+T.check(bagFills[1] and bagFills[1].w == 304 and bagFills[1].h == 144,
+  "wide bag fills the whole 304x144 surface")
+run.loader.modOptions["wide-menus"] = { rby_bag = false }
+T.eq(select(1, bag:uiSize()), 160, "bag toggle off restores classic canvas")
+T.check(not bag.isOpaque, "classic bag is transparent over the map again")
+run.loader.modOptions["wide-menus"] = {}
+bag:uiSize()
+T.check(bag.isOpaque, "bag toggle on restores opaque ownership")
+
+-- RBY mart: root Menu + buy/sell itemBox lists must go full-bleed, and the
+-- money amount must sit inside MONEY_BOX (classic right-align tile).
+local shopStock = { "POKE_BALL", "POTION" }
+if not yellowData.items or not yellowData.items.POKE_BALL then
+  shopStock = {}
+  for id in pairs(yellowData.items or {}) do
+    shopStock[#shopStock + 1] = id
+    if #shopStock >= 2 then break end
+  end
+end
+local shopGame = {
+  data = yellowData,
+  save = SaveData.newGame(),
+  stack = setmetatable({}, { __index = StateStack }),
+}
+shopGame.save.money = 935
+shopGame.stack:init()
+shopGame.stack:push(overworld)
+local shop = Screens.push(shopGame, "ShopMenu", shopStock, function() end)
+T.eq(shop.screenId, "ShopMenu", "shop push stamps ShopMenu")
+T.check(shop.isWideMenuLayout, "shop is claimed wide")
+T.eq(select(1, shop:uiSize()), 304, "shop owns the wide canvas")
+T.check(shop.isOpaque, "wide shop is opaque so the map does not show through")
+local moneyBoxes, moneyLabels = {}, {}
+local realShopBox, realShopDraw = Font.drawBox, Font.draw
+function Font.drawBox(tx, ty, tw, th)
+  if ty == 0 and tw == 9 then
+    moneyBoxes[#moneyBoxes + 1] = { tx = tx, tw = tw }
+  end
+  return realShopBox(tx, ty, tw, th)
+end
+function Font.draw(text, x, y)
+  local s = tostring(text)
+  if s:find("¥") or s == "MONEY" then
+    moneyLabels[#moneyLabels + 1] = { text = s, x = x, y = y }
+  end
+  return realShopDraw(text, x, y)
+end
+local okShop, errShop = pcall(function() shop:draw() end)
+Font.drawBox = realShopBox
+Font.draw = realShopDraw
+T.check(okShop, "wide shop draws (" .. tostring(errShop) .. ")")
+T.check(moneyBoxes[1] and moneyBoxes[1].tx == 29,
+  "wide shop money box sits at the right edge")
+local yen
+for _, row in ipairs(moneyLabels) do
+  if row.text:find("¥") then yen = row break end
+end
+T.check(yen ~= nil, "wide shop draws a yen amount")
+if yen and moneyBoxes[1] then
+  local boxLeft = moneyBoxes[1].tx * 8
+  local boxRight = (moneyBoxes[1].tx + moneyBoxes[1].tw) * 8
+  T.check(yen.x >= boxLeft and yen.x + Font.width(yen.text) <= boxRight,
+    "wide shop yen sits inside the money box")
+end
+
+-- Buy list is pushed without a screenId; claim path must still promote it.
+shopGame.input = {
+  wasPressed = function(_, btn) return btn == "a" end,
+}
+shop.index = 1
+shop:update(0)
+local buy = shopGame.stack:top()
+T.check(buy and buy.itemBox and buy.dialogue, "BUY opens a mart item list")
+T.eq(buy.screenId, "ShopMenu", "mart buy list inherits ShopMenu id")
+T.check(buy.isOpaque, "wide mart buy list is opaque")
+T.eq(select(1, buy:uiSize()), 304, "mart buy list owns the wide canvas")
+local buyBoxes, buyYen = {}, nil
+function Font.drawBox(tx, ty, tw, th)
+  if ty == 0 and tw == 9 then
+    buyBoxes[#buyBoxes + 1] = { tx = tx, tw = tw }
+  end
+  return realShopBox(tx, ty, tw, th)
+end
+function Font.draw(text, x, y)
+  local s = tostring(text)
+  if s:find("¥") and y == 8 then buyYen = { text = s, x = x } end
+  return realShopDraw(text, x, y)
+end
+local okBuy, errBuy = pcall(function() buy:draw() end)
+Font.drawBox = realShopBox
+Font.draw = realShopDraw
+T.check(okBuy, "wide mart buy draws (" .. tostring(errBuy) .. ")")
+T.check(buyBoxes[1] and buyBoxes[1].tx == 29, "wide buy money box is right-pinned")
+T.check(buyYen ~= nil, "wide buy draws the money amount")
+if buyYen and buyBoxes[1] then
+  local boxLeft = buyBoxes[1].tx * 8
+  local boxRight = (buyBoxes[1].tx + buyBoxes[1].tw) * 8
+  T.check(buyYen.x >= boxLeft and buyYen.x + Font.width(buyYen.text) <= boxRight,
+    "wide buy yen sits inside the money box")
+end
+
+-- RBY Pokédex: claimed wide but vanilla draws at col 14 / x=128. Right
+-- chrome (SEEN/OWN, divider, DATA…) must pin to cols - 20.
+local dexSave = SaveData.newGame()
+local speciesId = (yellowData.pokemon.BULBASAUR and "BULBASAUR")
+               or (yellowData.pokemon.CHARMANDER and "CHARMANDER")
+               or (T.fixtures.ids.species[1])
+dexSave.pokedex.seen[speciesId] = true
+dexSave.pokedex.owned[speciesId] = true
+local dexGame = {
+  data = yellowData,
+  save = dexSave,
+  stack = setmetatable({}, { __index = StateStack }),
+}
+dexGame.stack:init()
+dexGame.stack:push(overworld)
+local dex = Screens.push(dexGame, "Pokedex" .. "Menu")
+T.eq(dex.screenId, "Pokedex" .. "Menu", "dex push stamps PokedexMenu")
+T.check(dex.isWideMenuLayout, "dex is claimed wide")
+T.eq(select(1, dex:uiSize()), 304, "dex owns the wide canvas")
+local dexFills, dexLabels = {}, {}
+local realDexRect, realDexDraw = love.graphics.rectangle, Font.draw
+function love.graphics.rectangle(mode, x, y, w, h, ...)
+  if mode == "fill" then dexFills[#dexFills + 1] = { w = w, h = h } end
+  return realDexRect(mode, x, y, w, h, ...)
+end
+function Font.draw(text, x, y)
+  local s = tostring(text)
+  if s == "SEEN" or s == "OWN" or s == "CONTENTS" or s == "DATA" then
+    dexLabels[#dexLabels + 1] = { text = s, x = x, y = y }
+  end
+  return realDexDraw(text, x, y)
+end
+local okDex, errDex = pcall(function() dex:draw() end)
+love.graphics.rectangle = realDexRect
+Font.draw = realDexDraw
+T.check(okDex, "wide dex draws (" .. tostring(errDex) .. ")")
+T.check(dexFills[1] and dexFills[1].w == 304 and dexFills[1].h == 144,
+  "wide dex fills the whole 304x144 surface")
+local seenLabel, dataLabel, contentsLabel
+for _, row in ipairs(dexLabels) do
+  if row.text == "SEEN" then seenLabel = row end
+  if row.text == "DATA" then dataLabel = row end
+  if row.text == "CONTENTS" then contentsLabel = row end
+end
+T.check(contentsLabel and contentsLabel.x == 8,
+  "wide dex keeps CONTENTS on the left")
+T.check(seenLabel and seenLabel.x == 264,
+  "wide dex pins SEEN to the right column")
+T.check(dataLabel and dataLabel.x == 264,
+  "wide dex pins DATA to the right column")
+
+local ruleText, ruleX
+local realDraw2 = Font.draw
+function Font.draw(text, x, y)
+  local s = tostring(text)
+  if s:find("─") then ruleText, ruleX = s, x end
+  return realDraw2(text, x, y)
+end
+dex:draw()
+Font.draw = realDraw2
+T.check(ruleText ~= nil, "wide dex draws the SEEN/OWN rule")
+T.eq(ruleX, 256, "wide dex rule starts just after the divider")
+T.eq(ruleX + Font.width(ruleText), 304,
+  "wide dex rule reaches the right edge")
+
+-- Side menu must not snap back to classic tx=14 after Menu.new.
+local ownedRow = 1
+for i, item in ipairs(dex.items or {}) do
+  if item.value == speciesId then ownedRow = i break end
+end
+dex.index = ownedRow
+dex:syncScroll()
+dexGame.input = {
+  wasPressed = function(_, btn) return btn == "a" end,
+}
+dex:update(0)
+local side = dexGame.stack:top()
+T.check(side and side ~= dex, "dex A opens the side menu")
+T.eq(side.tx, 31, "dex side menu pins to the wide right edge")
+T.eq(side.tw, 6, "dex side menu keeps classic width")
+
+-- Down from the 12th visible row must scroll, not jump to CANCEL.
+options.rows = {}
+for i = 1, 20 do
+  options.rows[i] = {
+    id = "extra" .. i, label = "ROW " .. i,
+    value = function() return "ON" end,
+    step = function() return false end,
+  }
+end
+options.index = 12
+options.scroll = 0
+yellowGame.input = {
+  wasPressed = function(_, btn) return btn == "down" end,
+}
+options:update(0)
+T.eq(options.index, 13, "down from row 12 selects row 13, not CANCEL")
+T.eq(options.scroll, 1, "down from row 12 scrolls the compact window")
+Renderer:setUISize(160, 144)
+GameVersion.set(prevVersion)
 
 run.release()
 Screens.invalidate()

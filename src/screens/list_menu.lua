@@ -15,7 +15,10 @@ return function(ctx)
     love.graphics.setColor(1, 1, 1, 1)
     love.graphics.rectangle("fill", 0, 0, uiw, H)
     love.graphics.setColor(0, 0, 0, 1)
-    Font.draw(Strings(self.title), 8, 4)
+    -- Mart buy/sell lists pass a nil title (ShopMenu); bag/dex pass one.
+    if self.title then
+      Font.draw(Strings(self.title), 8, 4)
+    end
     if #self.items == 0 then
       Font.draw(Strings("Nothing here."), 16, 64)
     end
@@ -34,7 +37,14 @@ return function(ctx)
         love.graphics.circle("fill", bx, by, 1.2)
         love.graphics.setColor(0, 0, 0, 1)
       end
-      if item.right then
+      -- Shop buy uses price; bag/sell use count; PC/other use right.
+      if item.price then
+        Font.draw(item.price, uiw - 8 - Font.width(item.price), y)
+      elseif item.count then
+        local count = tostring(item.count)
+        Font.draw("\xc3\x97", uiw - 8 - Font.width(count) - 8, y)
+        Font.draw(count, uiw - 8 - Font.width(count), y)
+      elseif item.right then
         Font.draw(item.right, uiw - 8 - Font.width(item.right), y)
       end
       if i == self.index then
@@ -47,10 +57,13 @@ return function(ctx)
     end
     if self.dialogue then
       local moneyTw = 9
-      Font.drawBox(cols - moneyTw, 0, moneyTw, 3)
+      local moneyTx = cols - moneyTw
+      Font.drawBox(moneyTx, 0, moneyTw, 3)
       love.graphics.setColor(0, 0, 0, 1)
       local money = ("¥%d"):format(self.money and self.money() or 0)
-      Font.draw(money, uiw - 8 - Font.width(money), 8)
+      -- Match classic 152px right-align inside MONEY_BOX (tile moneyTx+tw-1).
+      local right = (moneyTx + moneyTw - 1) * 8
+      Font.draw(money, right - Font.width(money), 8)
     end
     if self.dialogue or (self.messageBox and self.footer) then
       Font.drawBox(0, 12, cols, 6)
